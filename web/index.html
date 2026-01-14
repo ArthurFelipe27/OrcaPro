@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Orçamentos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="logo">
+            <span>⚡ OrcaPro</span>
+        </div>
+        <button class="nav-btn active" onclick="navigate('home')">Início</button>
+        <button class="nav-btn" onclick="navigate('create')">Criar Orçamento</button>
+        <button class="nav-btn" onclick="navigate('history')">Histórico</button>
+        <button class="nav-btn" onclick="navigate('settings')">Configurações</button>
+        <button class="nav-btn" onclick="navigate('help')">Ajuda</button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+        <!-- SECTION: HOME -->
+        <section id="home" class="section active">
+            <h2>Visão Geral</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Orçamentos Criados</div>
+                    <div class="stat-value" id="stat-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Valor Total Acumulado</div>
+                    <div class="stat-value" id="stat-total">R$ 0,00</div>
+                </div>
+            </div>
+            <div style="margin-top: 2rem;">
+                <div class="card">
+                    <h3>Acesso Rápido</h3>
+                    <p style="color: var(--text-muted); margin: 10px 0;">Comece criando um novo orçamento para seus
+                        clientes.</p>
+                    <button class="btn btn-primary" onclick="navigate('create')">Novo Orçamento +</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: CREATE -->
+        <section id="create" class="section">
+            <h2>Novo Orçamento</h2>
+            <div class="card">
+                <h3>Dados do Cliente</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nome do Cliente *</label>
+                        <input type="text" id="client-name" placeholder="Ex: João da Silva">
+                    </div>
+                    <div class="form-group">
+                        <label>Telefone / WhatsApp</label>
+                        <input type="text" id="client-phone" placeholder="(00) 00000-0000">
+                    </div>
+                    <div class="form-group">
+                        <label>E-mail</label>
+                        <input type="email" id="client-email" placeholder="cliente@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Endereço Completo</label>
+                        <input type="text" id="client-address" placeholder="Rua, Número, Bairro...">
+                    </div>
+                </div>
+
+                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--border);">
+
+                <h3>Itens do Serviço</h3>
+                <div class="item-input-row">
+                    <div style="flex: 3;">
+                        <input type="text" id="item-desc" placeholder="Descrição do item *">
+                        <input type="text" id="item-obs" placeholder="Observação (opcional)"
+                            style="font-size: 0.9rem; margin-top: 5px;">
+                    </div>
+                    <div style="flex: 1;">
+                        <input type="number" id="item-qty" placeholder="Qtd" value="1">
+                    </div>
+                    <div style="flex: 1;">
+                        <input type="number" id="item-price" placeholder="Preço (R$)">
+                    </div>
+                    <button class="btn btn-secondary" style="height: fit-content; align-self: flex-start;"
+                        onclick="addItem()">Adicionar</button>
+                </div>
+
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Descrição</th>
+                            <th>Qtd</th>
+                            <th>Unitário</th>
+                            <th>Total</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="items-list">
+                        <!-- Items will appear here -->
+                    </tbody>
+                </table>
+
+                <div class="total-display" id="total-display">
+                    Total: R$ 0,00
+                </div>
+
+                <div style="margin-top: 2rem; text-align: right;">
+                    <button class="btn btn-primary" onclick="saveBudget()">Salvar Orçamento</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: HISTORY -->
+        <section id="history" class="section">
+            <h2>Histórico de Orçamentos</h2>
+            <div class="card">
+                <div id="history-container">
+                    <p style="color: var(--text-muted); text-align: center;">Carregando...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: SETTINGS -->
+        <section id="settings" class="section">
+            <h2>Configurações</h2>
+            <div class="card">
+                <div class="form-group">
+                    <label>Nome da Sua Empresa</label>
+                    <input type="text" id="company-name" placeholder="Sua Empresa Ltda">
+                </div>
+                <div class="form-group">
+                    <label>Rodapé Padrão do Orçamento</label>
+                    <textarea id="footer-text" rows="3"
+                        placeholder="Obrigado pela preferência! Pagamento em até 3x."></textarea>
+                </div>
+
+                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--border);">
+
+                <h3>Exportação de PDF</h3>
+                <div class="form-group">
+                    <label>Onde salvar os orçamentos?</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="pdf-path" readonly placeholder="Pasta padrão do sistema"
+                            style="background-color: #f9fafb; cursor: default;">
+                        <button class="btn btn-secondary" onclick="selectFolder()">📂 Selecionar Pasta</button>
+                    </div>
+                </div>
+
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="pdf-subfolder" style="width: auto;">
+                    <label for="pdf-subfolder" style="margin: 0; cursor: pointer;">Criar pasta separada para cada
+                        cliente?</label>
+                </div>
+
+                <div style="margin-top: 2rem;">
+                    <button class="btn btn-primary" onclick="saveSettings()">Salvar Configurações</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: HELP -->
+        <section id="help" class="section">
+            <h2>Central de Ajuda</h2>
+            <div class="help-grid">
+                <div class="card help-card">
+                    <div class="icon">⚙️</div>
+                    <h3>Configuração Inicial</h3>
+                    <p>Antes de começar, vá até a aba <strong>Configurações</strong>. Defina o nome da sua empresa e o
+                        rodapé. Esses dados aparecerão no PDF.</p>
+                </div>
+
+                <div class="card help-card">
+                    <div class="icon">📝</div>
+                    <h3>Criar Orçamento</h3>
+                    <p>Preencha os dados do cliente (Telefone e Email são opcionais). Adicione itens e use o campo
+                        "Observação" para detalhes técnicos.</p>
+                </div>
+
+                <div class="card help-card">
+                    <div class="icon">📂</div>
+                    <h3>Salvar PDFs</h3>
+                    <p>Agora você pode escolher onde os arquivos serão salvos. Nas configurações, você pode ativar a
+                        criação automática de pastas por cliente.</p>
+                </div>
+
+                <div class="card help-card">
+                    <div class="icon">💾</div>
+                    <h3>Backup</h3>
+                    <p>Todos os dados ficam salvos no arquivo <code>orcamentos.db</code> na pasta do programa. Copie
+                        esse arquivo para fazer backup.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
