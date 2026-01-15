@@ -136,6 +136,24 @@ async function generatePDF(id) {
     }
 }
 
+async function deleteBudget(id) {
+    if (!confirm("Tem certeza que deseja excluir este orçamento permanentemente?")) {
+        return;
+    }
+
+    try {
+        const response = await window.pywebview.api.delete_budget(id);
+        if (response.status === 'ok') {
+            loadHistory(); // Recarrega a lista
+            loadStats();   // Atualiza estatísticas
+        } else {
+            alert("Erro ao excluir: " + response.message);
+        }
+    } catch (e) {
+        alert("Erro ao conectar com o sistema.");
+    }
+}
+
 async function loadHistory() {
     try {
         const history = await window.pywebview.api.get_history();
@@ -152,12 +170,19 @@ async function loadHistory() {
                 <div class="history-item">
                     <div>
                         <div style="font-weight: 600; font-size: 1.1rem;">${item.client}</div>
-                        <div style="font-size: 0.9rem; color: var(--text-muted);">${item.date} - ${item.items_count} itens</div>
+                        <div style="font-size: 0.9rem; color: var(--text-muted);">
+                             #${item.id} • ${item.date} • ${item.items_count} itens
+                        </div>
                     </div>
-                    <div style="text-align: right; display: flex; align-items: center; gap: 15px;">
-                        <div style="font-weight: 700; color: var(--primary);">R$ ${item.total.toFixed(2)}</div>
+                    <div style="text-align: right; display: flex; align-items: center; gap: 10px;">
+                        <div style="font-weight: 700; color: var(--primary); margin-right: 10px;">R$ ${item.total.toFixed(2)}</div>
+                        
                         <button class="btn btn-secondary" onclick="generatePDF(${item.id})" title="Gerar PDF">
-                            📄 PDF
+                            📄
+                        </button>
+                        
+                        <button class="btn btn-danger" onclick="deleteBudget(${item.id})" title="Excluir Orçamento" style="padding: 0.75rem;">
+                            🗑️
                         </button>
                     </div>
                 </div>
@@ -180,16 +205,12 @@ async function loadSettings() {
     try {
         const settings = await window.pywebview.api.get_settings();
         if (settings) {
-            // Campos básicos
             document.getElementById('company-name').value = settings.company || '';
             document.getElementById('footer-text').value = settings.footer || '';
-
-            // Novos campos da empresa
             document.getElementById('company-legal-name').value = settings.legal_name || '';
             document.getElementById('company-address').value = settings.address || '';
             document.getElementById('company-phone').value = settings.phone || '';
 
-            // Campos de PDF
             if (settings.pdf_path) {
                 document.getElementById('pdf-path').value = settings.pdf_path;
             }
@@ -214,7 +235,6 @@ async function saveSettings() {
     const legalName = document.getElementById('company-legal-name').value;
     const address = document.getElementById('company-address').value;
     const phone = document.getElementById('company-phone').value;
-
     const footer = document.getElementById('footer-text').value;
     const pdfPath = document.getElementById('pdf-path').value;
     const createSubfolder = document.getElementById('pdf-subfolder').checked;
@@ -233,7 +253,6 @@ async function saveSettings() {
     } catch (e) { }
 }
 
-// Init
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => loadStats(), 500);
 });
