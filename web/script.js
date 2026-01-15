@@ -180,10 +180,16 @@ async function loadSettings() {
     try {
         const settings = await window.pywebview.api.get_settings();
         if (settings) {
+            // Campos básicos
             document.getElementById('company-name').value = settings.company || '';
             document.getElementById('footer-text').value = settings.footer || '';
 
-            // Novos Campos
+            // Novos campos da empresa
+            document.getElementById('company-legal-name').value = settings.legal_name || '';
+            document.getElementById('company-address').value = settings.address || '';
+            document.getElementById('company-phone').value = settings.phone || '';
+
+            // Campos de PDF
             if (settings.pdf_path) {
                 document.getElementById('pdf-path').value = settings.pdf_path;
             }
@@ -205,14 +211,21 @@ async function selectFolder() {
 
 async function saveSettings() {
     const company = document.getElementById('company-name').value;
+    const legalName = document.getElementById('company-legal-name').value;
+    const address = document.getElementById('company-address').value;
+    const phone = document.getElementById('company-phone').value;
+
     const footer = document.getElementById('footer-text').value;
     const pdfPath = document.getElementById('pdf-path').value;
     const createSubfolder = document.getElementById('pdf-subfolder').checked;
 
     try {
         await window.pywebview.api.save_settings({
-            company,
-            footer,
+            company: company,
+            legal_name: legalName,
+            address: address,
+            phone: phone,
+            footer: footer,
             pdf_path: pdfPath,
             create_subfolder: createSubfolder
         });

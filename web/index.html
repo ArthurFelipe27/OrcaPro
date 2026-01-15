@@ -133,10 +133,29 @@
         <section id="settings" class="section">
             <h2>Configurações</h2>
             <div class="card">
-                <div class="form-group">
-                    <label>Nome da Sua Empresa</label>
-                    <input type="text" id="company-name" placeholder="Sua Empresa Ltda">
+                <h3>Dados da Empresa</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px;">Essas informações
+                    aparecerão no cabeçalho do PDF.</p>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nome Fantasia (Principal)</label>
+                        <input type="text" id="company-name" placeholder="Ex: Minha Loja Tech">
+                    </div>
+                    <div class="form-group">
+                        <label>Razão Social</label>
+                        <input type="text" id="company-legal-name" placeholder="Ex: Minha Loja Ltda">
+                    </div>
+                    <div class="form-group">
+                        <label>Telefone da Empresa</label>
+                        <input type="text" id="company-phone" placeholder="(00) 0000-0000">
+                    </div>
+                    <div class="form-group">
+                        <label>Endereço da Empresa</label>
+                        <input type="text" id="company-address" placeholder="Av. Brasil, 1000 - Centro">
+                    </div>
                 </div>
+
                 <div class="form-group">
                     <label>Rodapé Padrão do Orçamento</label>
                     <textarea id="footer-text" rows="3"
@@ -173,30 +192,30 @@
             <div class="help-grid">
                 <div class="card help-card">
                     <div class="icon">⚙️</div>
-                    <h3>Configuração Inicial</h3>
-                    <p>Antes de começar, vá até a aba <strong>Configurações</strong>. Defina o nome da sua empresa e o
-                        rodapé. Esses dados aparecerão no PDF.</p>
+                    <h3>Dados da Empresa</h3>
+                    <p>Preencha os dados completos da sua empresa (Nome, Razão Social, Endereço e Telefone) para que o
+                        PDF fique profissional.</p>
                 </div>
 
                 <div class="card help-card">
                     <div class="icon">📝</div>
                     <h3>Criar Orçamento</h3>
-                    <p>Preencha os dados do cliente (Telefone e Email são opcionais). Adicione itens e use o campo
-                        "Observação" para detalhes técnicos.</p>
+                    <p>Preencha os dados do cliente. Itens podem ter observações técnicas que aparecem logo abaixo da
+                        descrição.</p>
                 </div>
 
                 <div class="card help-card">
                     <div class="icon">📂</div>
                     <h3>Salvar PDFs</h3>
-                    <p>Agora você pode escolher onde os arquivos serão salvos. Nas configurações, você pode ativar a
-                        criação automática de pastas por cliente.</p>
+                    <p>Você pode escolher a pasta onde os PDFs serão salvos e se deseja organizar automaticamente em
+                        subpastas por cliente.</p>
                 </div>
 
                 <div class="card help-card">
                     <div class="icon">💾</div>
                     <h3>Backup</h3>
-                    <p>Todos os dados ficam salvos no arquivo <code>orcamentos.db</code> na pasta do programa. Copie
-                        esse arquivo para fazer backup.</p>
+                    <p>Todos os dados ficam salvos no arquivo <code>orcamentos.db</code>. Copie este arquivo para fazer
+                        backup.</p>
                 </div>
             </div>
         </section>
