@@ -19,7 +19,6 @@
             <span>⚡ OrcaPro</span>
         </div>
         <button class="nav-btn active" onclick="navigate('home')">Início</button>
-        <!-- Alterado para startNewBudget para resetar o form -->
         <button class="nav-btn" onclick="startNewBudget()">Criar Orçamento</button>
         <button class="nav-btn" onclick="navigate('history')">Histórico</button>
         <button class="nav-btn" onclick="navigate('settings')">Configurações</button>
@@ -29,25 +28,61 @@
     <!-- Main Content -->
     <main class="main-content">
 
-        <!-- SECTION: HOME -->
+        <!-- SECTION: HOME (DASHBOARD ATUALIZADO) -->
         <section id="home" class="section active">
-            <h2>Visão Geral</h2>
+            <h2>Visão Geral do Negócio</h2>
+
             <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">Orçamentos Criados</div>
-                    <div class="stat-value" id="stat-count">0</div>
+                <!-- Cartão: Aprovados (Verde) -->
+                <div class="stat-card border-green">
+                    <div class="stat-header">
+                        <div class="stat-label">Faturamento (Aprovados)</div>
+                        <div class="stat-icon green">💰</div>
+                    </div>
+                    <div class="stat-value green-text" id="stat-approved-value">R$ 0,00</div>
+                    <div class="stat-sub">Total de <span id="stat-approved-count">0</span> orçamentos</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">Valor Total Acumulado</div>
-                    <div class="stat-value" id="stat-total">R$ 0,00</div>
+
+                <!-- Cartão: Pendentes (Amarelo) -->
+                <div class="stat-card border-yellow">
+                    <div class="stat-header">
+                        <div class="stat-label">Em Aberto (Pendentes)</div>
+                        <div class="stat-icon yellow">⏳</div>
+                    </div>
+                    <div class="stat-value yellow-text" id="stat-pending-value">R$ 0,00</div>
+                    <div class="stat-sub">Aguardando <span id="stat-pending-count">0</span> respostas</div>
+                </div>
+
+                <!-- Cartão: Rejeitados (Vermelho) -->
+                <div class="stat-card border-red">
+                    <div class="stat-header">
+                        <div class="stat-label">Perdidos (Rejeitados)</div>
+                        <div class="stat-icon red">❌</div>
+                    </div>
+                    <div class="stat-value red-text" id="stat-rejected-count">0</div>
+                    <div class="stat-sub">Orçamentos recusados</div>
+                </div>
+
+                <!-- Cartão: Total (Azul) -->
+                <div class="stat-card border-blue">
+                    <div class="stat-header">
+                        <div class="stat-label">Total Criados</div>
+                        <div class="stat-icon blue">📊</div>
+                    </div>
+                    <div class="stat-value blue-text" id="stat-total-count">0</div>
+                    <div class="stat-sub">Histórico geral</div>
                 </div>
             </div>
+
             <div style="margin-top: 2rem;">
                 <div class="card">
                     <h3>Acesso Rápido</h3>
-                    <p style="color: var(--text-muted); margin: 10px 0;">Comece criando um novo orçamento para seus
-                        clientes.</p>
-                    <button class="btn btn-primary" onclick="startNewBudget()">Novo Orçamento +</button>
+                    <p style="color: var(--text-muted); margin: 10px 0;">Atalhos para as funções mais usadas.</p>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-primary" onclick="startNewBudget()">+ Novo Orçamento</button>
+                        <button class="btn btn-secondary" onclick="navigate('history')">📂 Ver Histórico
+                            Completo</button>
+                    </div>
                 </div>
             </div>
         </section>

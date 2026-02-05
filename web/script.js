@@ -334,10 +334,24 @@ async function loadHistory() {
 async function loadStats() {
     try {
         const stats = await window.pywebview.api.get_stats();
-        document.getElementById('stat-count').innerText = stats.count;
-        // O valor total vindo da API já deve estar filtrado para somar apenas os APROVADOS
-        document.getElementById('stat-total').innerText = `R$ ${stats.total.toFixed(2)}`;
-    } catch (e) { }
+
+        // Aprovados
+        document.getElementById('stat-approved-value').innerText = `R$ ${stats.approved_value.toFixed(2)}`;
+        document.getElementById('stat-approved-count').innerText = stats.approved_count;
+
+        // Pendentes
+        document.getElementById('stat-pending-value').innerText = `R$ ${stats.pending_value.toFixed(2)}`;
+        document.getElementById('stat-pending-count').innerText = stats.pending_count;
+
+        // Rejeitados
+        document.getElementById('stat-rejected-count').innerText = stats.rejected_count;
+
+        // Total
+        document.getElementById('stat-total-count').innerText = stats.total_count;
+
+    } catch (e) {
+        console.error("Erro ao carregar estatísticas:", e);
+    }
 }
 
 async function loadSettings() {

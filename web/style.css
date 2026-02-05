@@ -226,7 +226,6 @@ textarea:focus {
     color: white;
 }
 
-/* Novo botão de aviso (amarelo) para edição */
 .btn-warning {
     background-color: #f59e0b;
     color: white;
@@ -239,7 +238,6 @@ textarea:focus {
 /* Edição de Linhas */
 .editing-row {
     background-color: #fffbeb;
-    /* Amarelo bem claro */
     border-left: 3px solid #f59e0b;
 }
 
@@ -250,34 +248,11 @@ textarea:focus {
     align-items: center;
     padding: 1rem;
     border-bottom: 1px solid var(--border);
+    transition: background-color 0.2s;
 }
 
 .history-item:last-child {
     border-bottom: none;
-}
-
-/* Dashboard */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
-}
-
-.stat-card {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 12px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.stat-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--primary);
-}
-
-.stat-label {
-    color: var(--text-muted);
 }
 
 /* Help Section Cards */
@@ -307,26 +282,129 @@ textarea:focus {
     color: var(--text-muted);
 }
 
-/* --- STATUS COLORS (Adicionar ao final do web/style.css) --- */
+/* --- ESTILOS NOVOS: DASHBOARD --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border-left: 5px solid transparent;
+    /* Borda colorida à esquerda */
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.stat-sub {
+    font-size: 0.85rem;
+    color: #9CA3AF;
+}
+
+/* Cores Específicas Dashboard */
+.border-green {
+    border-left-color: #10B981;
+}
+
+.green-text {
+    color: #10B981;
+}
+
+.stat-icon.green {
+    background: #ECFDF5;
+    color: #10B981;
+    padding: 8px;
+    border-radius: 8px;
+}
+
+.border-yellow {
+    border-left-color: #F59E0B;
+}
+
+.yellow-text {
+    color: #F59E0B;
+}
+
+.stat-icon.yellow {
+    background: #FFFBEB;
+    color: #F59E0B;
+    padding: 8px;
+    border-radius: 8px;
+}
+
+.border-red {
+    border-left-color: #EF4444;
+}
+
+.red-text {
+    color: #EF4444;
+}
+
+.stat-icon.red {
+    background: #FEF2F2;
+    color: #EF4444;
+    padding: 8px;
+    border-radius: 8px;
+}
+
+.border-blue {
+    border-left-color: var(--primary);
+}
+
+.blue-text {
+    color: var(--primary);
+}
+
+.stat-icon.blue {
+    background: #EEF2FF;
+    color: var(--primary);
+    padding: 8px;
+    border-radius: 8px;
+}
+
+/* --- ESTILOS NOVOS: STATUS COLORS --- */
 .status-pending {
     background-color: #ffffff;
-    /* Branco */
     border-left: 5px solid #d1d5db;
-    /* Cinza na borda */
 }
 
 .status-approved {
-    background-color: #dcfce7;
-    /* Verde Claro */
+    background-color: #f0fdf4;
+    /* Verde muito claro */
     border-left: 5px solid #22c55e;
-    /* Verde Forte na borda */
 }
 
 .status-rejected {
-    background-color: #fee2e2;
-    /* Vermelho Claro */
+    background-color: #fef2f2;
+    /* Vermelho muito claro */
     border-left: 5px solid #ef4444;
-    /* Vermelho Forte na borda */
 }
 
 /* Botões de Ação no Histórico */

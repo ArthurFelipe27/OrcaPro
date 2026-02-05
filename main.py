@@ -234,7 +234,6 @@ class Api:
                     WHERE id=?
                 ''', (data['client'], data.get('email', ''), data.get('phone', ''), data.get('address', ''), items_json, data['total'], data['date'], data['id']))
             else:
-                # Ao criar, define status como PENDING se não especificado
                 c.execute('''
                     INSERT INTO budgets 
                     (client, client_email, client_phone, client_address, items, total, date_created, status) 
@@ -271,13 +270,11 @@ class Api:
         conn = sqlite3.connect(DB_FILE)
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
-        # Garante que a coluna status seja retornada
         c.execute('SELECT * FROM budgets')
         rows = c.fetchall()
         results = []
         for row in rows:
             items = json.loads(row['items'])
-            # Pega o status, se for None ou vazio, assume PENDING
             status = row['status'] if 'status' in row.keys() and row['status'] else 'PENDING'
             
             results.append({
@@ -295,16 +292,37 @@ class Api:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         
-        # Total de Orçamentos (Quantidade)
+        # 1. Total Geral (Quantidade)
         c.execute('SELECT COUNT(*) FROM budgets')
-        count = c.fetchone()[0]
+        total_count = c.fetchone()[0]
         
-        # Valor Total (Apenas APROVADOS)
-        c.execute("SELECT SUM(total) FROM budgets WHERE status = 'APPROVED'")
-        total_val = c.fetchone()[0]
+        # 2. Aprovados (Qtd e Valor)
+        c.execute("SELECT COUNT(*), SUM(total) FROM budgets WHERE status = 'APPROVED'")
+        row_approved = c.fetchone()
+        approved_count = row_approved[0] if row_approved[0] else 0
+        approved_value = row_approved[1] if row_approved[1] else 0.0
+
+        # 3. Pendentes (Qtd e Valor Estimado)
+        c.execute("SELECT COUNT(*), SUM(total) FROM budgets WHERE status = 'PENDING' OR status IS NULL")
+        row_pending = c.fetchone()
+        pending_count = row_pending[0] if row_pending[0] else 0
+        pending_value = row_pending[1] if row_pending[1] else 0.0
+
+        # 4. Rejeitados (Qtd)
+        c.execute("SELECT COUNT(*) FROM budgets WHERE status = 'REJECTED'")
+        rejected_count = c.fetchone()[0]
+        rejected_count = rejected_count if rejected_count else 0
         
         conn.close()
-        return {'count': count if count else 0, 'total': total_val if total_val else 0.0}
+        
+        return {
+            'total_count': total_count if total_count else 0,
+            'approved_count': approved_count,
+            'approved_value': approved_value,
+            'pending_count': pending_count,
+            'pending_value': pending_value,
+            'rejected_count': rejected_count
+        }
 
     def save_settings(self, data):
         conn = sqlite3.connect(DB_FILE)
@@ -345,9 +363,6 @@ class Api:
         return {}
 
     def generate_pdf(self, budget_id):
-        # ... (Código da função generate_pdf permanece igual, sem alterações necessárias na lógica de PDF) ...
-        # (Para economizar espaço na resposta, mantenha o código original desta função aqui,
-        #  pois ela não precisa de alterações para funcionar com o status)
         try:
             conn = sqlite3.connect(DB_FILE)
             conn.row_factory = sqlite3.Row
