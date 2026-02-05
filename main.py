@@ -36,6 +36,7 @@ def init_db():
             id INTEGER PRIMARY KEY,
             company_name TEXT,
             company_legal_name TEXT,
+            company_cnpj TEXT,
             company_address TEXT,
             company_phone TEXT,
             footer_text TEXT,
@@ -44,11 +45,12 @@ def init_db():
         )
     ''')
     
-    # Migrações
+    # Migrações (Adiciona colunas novas automaticamente se não existirem)
     migrations = [
         ('settings', 'pdf_save_path', 'TEXT'),
         ('settings', 'pdf_create_subfolder', 'INTEGER'),
         ('settings', 'company_legal_name', 'TEXT'),
+        ('settings', 'company_cnpj', 'TEXT'), # Nova coluna CNPJ
         ('settings', 'company_address', 'TEXT'),
         ('settings', 'company_phone', 'TEXT'),
         ('budgets', 'client_email', 'TEXT'),
@@ -83,7 +85,7 @@ class ModernPDF(FPDF):
         self.budget = budget
         self.date_str = date_str
         self.set_auto_page_break(auto=True, margin=20)
-        self.set_margins(15, 15, 15) # Margens mais generosas
+        self.set_margins(15, 15, 15)
 
     def header(self):
         # 1. Barra de Acento Superior
@@ -94,7 +96,7 @@ class ModernPDF(FPDF):
         
         # 2. Título do Documento e Numero (Direita)
         self.set_font('Helvetica', 'B', 28)
-        self.set_text_color(200, 200, 200) # Cinza claro para o fundo "ORÇAMENTO"
+        self.set_text_color(220, 220, 220) # Cinza bem claro
         self.cell(0, 10, "ORÇAMENTO", 0, 1, 'R')
         
         self.set_y(25) # Voltar para cima para escrever o resto
@@ -109,6 +111,11 @@ class ModernPDF(FPDF):
         
         if self.company.get('legal_name'):
             self.cell(100, 5, self.company['legal_name'], 0, 1, 'L')
+            
+        # Adicionando CNPJ logo abaixo da razão social
+        if self.company.get('cnpj'):
+            self.cell(100, 5, f"CNPJ: {self.company['cnpj']}", 0, 1, 'L')
+            
         if self.company.get('address'):
             self.cell(100, 5, self.company['address'], 0, 1, 'L')
         if self.company.get('phone'):
@@ -193,16 +200,47 @@ class Api:
             conn = sqlite3.connect(DB_FILE)
             c = conn.cursor()
             items_json = json.dumps(data['items'])
-            c.execute('''
-                INSERT INTO budgets 
-                (client, client_email, client_phone, client_address, items, total, date_created) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (data['client'], data.get('email', ''), data.get('phone', ''), data.get('address', ''), items_json, data['total'], data['date']))
+            
+            # Se vier um ID, atualiza (UPDATE), senão cria novo (INSERT)
+            if 'id' in data and data['id']:
+                c.execute('''
+                    UPDATE budgets 
+                    SET client=?, client_email=?, client_phone=?, client_address=?, items=?, total=?, date_created=?
+                    WHERE id=?
+                ''', (data['client'], data.get('email', ''), data.get('phone', ''), data.get('address', ''), items_json, data['total'], data['date'], data['id']))
+            else:
+                c.execute('''
+                    INSERT INTO budgets 
+                    (client, client_email, client_phone, client_address, items, total, date_created) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (data['client'], data.get('email', ''), data.get('phone', ''), data.get('address', ''), items_json, data['total'], data['date']))
+                
             conn.commit()
             conn.close()
             return {'status': 'ok'}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
+
+    def get_budget_details(self, budget_id):
+        """Busca todos os detalhes de um orçamento para edição."""
+        conn = sqlite3.connect(DB_FILE)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM budgets WHERE id = ?', (budget_id,))
+        row = c.fetchone()
+        conn.close()
+        
+        if row:
+            return {
+                'id': row['id'],
+                'client': row['client'],
+                'email': row['client_email'],
+                'phone': row['client_phone'],
+                'address': row['client_address'],
+                'items': json.loads(row['items']),
+                'total': row['total']
+            }
+        return None
 
     def get_history(self):
         conn = sqlite3.connect(DB_FILE)
@@ -237,12 +275,14 @@ class Api:
         c.execute('SELECT id FROM settings WHERE id=1')
         exists = c.fetchone()
         subfolder_int = 1 if data.get('create_subfolder') else 0
-        params = (data['company'], data.get('legal_name', ''), data.get('address', ''), data.get('phone', ''), data['footer'], data.get('pdf_path', ''), subfolder_int)
+        
+        # Parâmetros atualizados com CNPJ
+        params = (data['company'], data.get('legal_name', ''), data.get('cnpj', ''), data.get('address', ''), data.get('phone', ''), data['footer'], data.get('pdf_path', ''), subfolder_int)
 
         if exists:
-            c.execute('UPDATE settings SET company_name=?, company_legal_name=?, company_address=?, company_phone=?, footer_text=?, pdf_save_path=?, pdf_create_subfolder=? WHERE id=1', params)
+            c.execute('UPDATE settings SET company_name=?, company_legal_name=?, company_cnpj=?, company_address=?, company_phone=?, footer_text=?, pdf_save_path=?, pdf_create_subfolder=? WHERE id=1', params)
         else:
-            c.execute('INSERT INTO settings (company_name, company_legal_name, company_address, company_phone, footer_text, pdf_save_path, pdf_create_subfolder, id) VALUES (?, ?, ?, ?, ?, ?, ?, 1)', params)
+            c.execute('INSERT INTO settings (company_name, company_legal_name, company_cnpj, company_address, company_phone, footer_text, pdf_save_path, pdf_create_subfolder, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)', params)
         conn.commit()
         conn.close()
         return {'status': 'ok'}
@@ -259,6 +299,7 @@ class Api:
             return {
                 'company': get_val('company_name'),
                 'legal_name': get_val('company_legal_name'),
+                'cnpj': get_val('company_cnpj'),
                 'address': get_val('company_address'),
                 'phone': get_val('company_phone'),
                 'footer': get_val('footer_text'),
@@ -287,6 +328,7 @@ class Api:
             company_data = {
                 'name': settings.get('company_name', 'Minha Empresa'),
                 'legal_name': settings.get('company_legal_name', ''),
+                'cnpj': settings.get('company_cnpj', ''),
                 'address': settings.get('company_address', ''),
                 'phone': settings.get('company_phone', '')
             }
@@ -307,75 +349,104 @@ class Api:
             pdf.alias_nb_pages()
             pdf.add_page()
 
-            # Cabeçalho da Tabela
-            pdf.set_font('Helvetica', 'B', 9)
-            pdf.set_fill_color(240, 240, 240)
-            pdf.set_draw_color(220, 220, 220)
-            pdf.set_text_color(50, 50, 50)
+            # Espaço extra antes da tabela
+            pdf.ln(5)
+
+            # Cabeçalho da Tabela - VISIBILIDADE MELHORADA
+            pdf.set_font('Helvetica', 'B', 10)
+            pdf.set_fill_color(50, 50, 50)  # Fundo Escuro
+            pdf.set_draw_color(50, 50, 50)  # Borda Escura
+            pdf.set_text_color(255, 255, 255) # Texto Branco
             
             # Ajustando larguras para A4 (180mm area util)
             w_desc, w_qty, w_unit, w_total = 90, 25, 30, 35
+            h_header = 9 # Altura do cabeçalho levemente maior
             
-            pdf.cell(w_desc, 8, "DESCRIÇÃO / SERVIÇO", 'B', 0, 'L', True)
-            pdf.cell(w_qty, 8, "QTD", 'B', 0, 'C', True)
-            pdf.cell(w_unit, 8, "UNITÁRIO", 'B', 0, 'R', True)
-            pdf.cell(w_total, 8, "TOTAL", 'B', 1, 'R', True)
+            pdf.cell(w_desc, h_header, "  DESCRIÇÃO / SERVIÇO", 1, 0, 'L', True)
+            pdf.cell(w_qty, h_header, "QTD", 1, 0, 'C', True)
+            pdf.cell(w_unit, h_header, "UNITÁRIO", 1, 0, 'R', True)
+            pdf.cell(w_total, h_header, "TOTAL  ", 1, 1, 'R', True)
             
-            # Itens
+            # Itens da Tabela
             pdf.set_font('Helvetica', '', 10)
             pdf.set_text_color(0, 0, 0)
+            pdf.set_draw_color(220, 220, 220) # Borda cinza clara para as linhas
             
-            for item in items:
+            for i, item in enumerate(items):
                 desc = item['desc']
                 if 'obs' in item and item['obs']: desc += f"\n(Obs: {item['obs']})"
 
-                # Salvar posição
+                # Efeito Zebrado (Linhas alternadas com fundo cinza bem claro)
+                fill = (i % 2 == 1)
+                if fill:
+                    pdf.set_fill_color(248, 248, 248)
+                else:
+                    pdf.set_fill_color(255, 255, 255)
+
+                # Salvar posições
                 x_start = pdf.get_x()
                 y_start = pdf.get_y()
                 
-                # Simular altura da descrição
-                pdf.multi_cell(w_desc, 6, desc, 0, 'L')
+                # Simular altura da descrição para desenhar o fundo corretamente
+                # O '  ' adiciona um pequeno padding visual à esquerda
+                pdf.multi_cell(w_desc, 7, "  " + desc, 'L', 'L', fill)
                 h_desc = pdf.get_y() - y_start
                 
-                # Voltar e desenhar células
+                # Voltar para o topo da linha e desenhar as outras colunas
                 pdf.set_xy(x_start + w_desc, y_start)
-                pdf.cell(w_qty, h_desc, str(item['qty']), 0, 0, 'C')
-                pdf.cell(w_unit, h_desc, f"R$ {item['price']:.2f}", 0, 0, 'R')
-                pdf.cell(w_total, h_desc, f"R$ {item['total']:.2f}", 0, 0, 'R')
                 
-                pdf.ln(h_desc) # Avançar linha
+                # Desenhando as células com a mesma altura da descrição e preenchimento
+                pdf.cell(w_qty, h_desc, str(item['qty']), 0, 0, 'C', fill)
+                pdf.cell(w_unit, h_desc, f"R$ {item['price']:.2f}", 0, 0, 'R', fill)
+                pdf.cell(w_total, h_desc, f"R$ {item['total']:.2f}  ", 0, 0, 'R', fill)
                 
-                # Linha divisória sutil
-                pdf.set_draw_color(245, 245, 245)
-                pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+                # Desenhar linha inferior da linha inteira
+                pdf.line(15, y_start + h_desc, 195, y_start + h_desc)
+                
+                pdf.ln(h_desc) # Avançar linha final
 
-            # Totais
-            pdf.ln(5)
-            # Linha grossa preta acima do total
-            pdf.set_draw_color(0, 0, 0)
-            pdf.set_line_width(0.5)
-            pdf.line(115, pdf.get_y(), 195, pdf.get_y())
-            pdf.ln(2)
+            # --- TOTAL GERAL EM DESTAQUE ---
+            pdf.ln(8)
             
-            pdf.set_x(115)
+            # Verificar se precisa de nova página para o total
+            if pdf.get_y() > 250: pdf.add_page()
+            
+            # Caixa do Total
+            x_total = 120
+            w_total_box = 195 - x_total
+            h_total_box = 12
+            
+            pdf.set_fill_color(235, 235, 235) # Fundo cinza para destaque
+            pdf.set_draw_color(0, 0, 0)       # Borda preta
+            pdf.set_line_width(0.3)
+            
+            pdf.set_x(x_total)
+            pdf.rect(x_total, pdf.get_y(), w_total_box, h_total_box, 'DF')
+            
             pdf.set_font('Helvetica', 'B', 12)
-            pdf.cell(45, 8, "TOTAL GERAL", 0, 0, 'L')
-            pdf.set_text_color(55, 65, 81) # Destaque de cor
-            pdf.cell(35, 8, f"R$ {budget['total']:.2f}", 0, 1, 'R')
+            pdf.cell(40, h_total_box, "  TOTAL GERAL", 0, 0, 'L') # Label alinhado à esquerda do box
             
-            # Reset
+            pdf.set_text_color(0, 0, 0)
+            # Valor alinhado à direita do box com padding
+            pdf.cell(w_total_box - 40, h_total_box, f"R$ {budget['total']:.2f}  ", 0, 1, 'R')
+            
+            # Reset de estilos
             pdf.set_line_width(0.2)
             pdf.set_text_color(0, 0, 0)
 
-            # Rodapé do Orçamento (Termos e Condições)
+            # --- RODAPÉ PERSONALIZADO (SEM TÍTULO) ---
             footer_text = settings.get('footer_text', '')
             if footer_text:
-                pdf.set_y(-40) # Posição fixa perto do fim
-                pdf.set_font('Helvetica', 'B', 8)
-                pdf.cell(0, 5, "OBSERVAÇÕES E CONDIÇÕES:", 0, 1, 'L')
-                pdf.set_font('Helvetica', '', 8)
-                pdf.set_text_color(80, 80, 80)
-                pdf.multi_cell(0, 4, footer_text)
+                pdf.set_y(-35) # Posição fixa perto do fim
+                
+                # Linha separadora sutil acima da mensagem
+                pdf.set_draw_color(200, 200, 200)
+                pdf.line(15, pdf.get_y()-2, 195, pdf.get_y()-2)
+                
+                # Mensagem centralizada e limpa
+                pdf.set_font('Helvetica', '', 9)
+                pdf.set_text_color(60, 60, 60)
+                pdf.multi_cell(0, 5, footer_text, 0, 'C')
 
             # Salvar e Abrir
             filename = f"Orcamento_{budget['id']}_{sanitize_filename(budget['client'])}.pdf"

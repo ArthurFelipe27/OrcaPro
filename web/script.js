@@ -1,6 +1,8 @@
 // --- STATE MANAGEMENT ---
 let currentItems = [];
 let grandTotal = 0;
+let editingItemIndex = -1; // -1 significa que não estamos editando nenhum item
+let currentBudgetId = null; // null significa novo orçamento
 
 // --- NAVIGATION ---
 function navigate(screenId) {
@@ -17,11 +19,40 @@ function navigate(screenId) {
     document.getElementById(screenId).classList.add('active');
 
     if (screenId === 'home') loadStats();
+    if (screenId === 'create') {
+        // Se viemos pelo menu e não temos ID carregado, é um NOVO orçamento.
+        // Se temos currentBudgetId, é porque clicamos em editar.
+        // A lógica de resetar será feita no botão "Novo Orçamento"
+    }
     if (screenId === 'history') loadHistory();
     if (screenId === 'settings') loadSettings();
 }
 
-// --- LOGIC: CREATE BUDGET ---
+function startNewBudget() {
+    resetForm();
+    navigate('create');
+}
+
+function resetForm() {
+    currentBudgetId = null;
+    currentItems = [];
+    document.getElementById('form-title').innerText = 'Novo Orçamento';
+    document.getElementById('client-name').value = '';
+    document.getElementById('client-phone').value = '';
+    document.getElementById('client-email').value = '';
+    document.getElementById('client-address').value = '';
+
+    // Reset item inputs
+    document.getElementById('item-desc').value = '';
+    document.getElementById('item-obs').value = '';
+    document.getElementById('item-qty').value = '1';
+    document.getElementById('item-price').value = '';
+
+    resetItemEditState();
+    renderItems();
+}
+
+// --- LOGIC: ITEM MANAGEMENT ---
 function addItem() {
     const desc = document.getElementById('item-desc').value;
     const obs = document.getElementById('item-obs').value;
@@ -34,9 +65,20 @@ function addItem() {
     }
 
     const total = qty * price;
-    currentItems.push({ desc, obs, qty, price, total });
+    const newItem = { desc, obs, qty, price, total };
+
+    if (editingItemIndex >= 0) {
+        // Atualizando item existente
+        currentItems[editingItemIndex] = newItem;
+        resetItemEditState();
+    } else {
+        // Adicionando novo
+        currentItems.push(newItem);
+    }
+
     renderItems();
 
+    // Limpar campos
     document.getElementById('item-desc').value = '';
     document.getElementById('item-obs').value = '';
     document.getElementById('item-qty').value = '1';
@@ -44,9 +86,39 @@ function addItem() {
     document.getElementById('item-desc').focus();
 }
 
+function resetItemEditState() {
+    editingItemIndex = -1;
+    const btn = document.getElementById('btn-add-item');
+    btn.innerText = 'Adicionar';
+    btn.classList.remove('btn-warning');
+    btn.classList.add('btn-secondary');
+}
+
+function editItem(index) {
+    const item = currentItems[index];
+
+    document.getElementById('item-desc').value = item.desc;
+    document.getElementById('item-obs').value = item.obs || '';
+    document.getElementById('item-qty').value = item.qty;
+    document.getElementById('item-price').value = item.price;
+
+    editingItemIndex = index;
+
+    // Mudar botão para indicar edição
+    const btn = document.getElementById('btn-add-item');
+    btn.innerText = 'Atualizar Item';
+    btn.classList.remove('btn-secondary');
+    btn.classList.add('btn-warning'); // Você pode adicionar estilo para btn-warning no CSS
+
+    document.getElementById('item-desc').focus();
+}
+
 function removeItem(index) {
-    currentItems.splice(index, 1);
-    renderItems();
+    if (confirm('Remover este item?')) {
+        currentItems.splice(index, 1);
+        if (editingItemIndex === index) resetItemEditState();
+        renderItems();
+    }
 }
 
 function renderItems() {
@@ -62,13 +134,17 @@ function renderItems() {
             descHtml += `<span class="item-obs-text">Obs: ${item.obs}</span>`;
         }
 
+        // Adicionei botão de editar (✏️)
         const row = `
-            <tr>
+            <tr class="${editingItemIndex === index ? 'editing-row' : ''}">
                 <td>${descHtml}</td>
                 <td>${item.qty}</td>
                 <td>R$ ${item.price.toFixed(2)}</td>
                 <td>R$ ${item.total.toFixed(2)}</td>
-                <td><button class="btn btn-danger" style="padding: 5px 10px; font-size: 0.8rem;" onclick="removeItem(${index})">X</button></td>
+                <td>
+                    <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8rem; margin-right: 5px;" onclick="editItem(${index})" title="Editar Item">✏️</button>
+                    <button class="btn btn-danger" style="padding: 5px 10px; font-size: 0.8rem;" onclick="removeItem(${index})" title="Remover Item">X</button>
+                </td>
             </tr>
         `;
         tbody.innerHTML += row;
@@ -77,6 +153,7 @@ function renderItems() {
     document.getElementById('total-display').innerText = `Total: R$ ${grandTotal.toFixed(2)}`;
 }
 
+// --- LOGIC: BUDGET CRUD ---
 async function saveBudget() {
     const client = document.getElementById('client-name').value;
     const phone = document.getElementById('client-phone').value;
@@ -89,6 +166,7 @@ async function saveBudget() {
     }
 
     const budgetData = {
+        id: currentBudgetId, // Passa o ID se for edição
         client: client,
         phone: phone,
         email: email,
@@ -102,12 +180,7 @@ async function saveBudget() {
         const response = await window.pywebview.api.save_budget(budgetData);
         if (response.status === 'ok') {
             alert('Orçamento salvo com sucesso!');
-            document.getElementById('client-name').value = '';
-            document.getElementById('client-phone').value = '';
-            document.getElementById('client-email').value = '';
-            document.getElementById('client-address').value = '';
-            currentItems = [];
-            renderItems();
+            resetForm();
             navigate('history');
         } else {
             alert('Erro ao salvar: ' + response.message);
@@ -115,6 +188,31 @@ async function saveBudget() {
     } catch (e) {
         console.error("Erro:", e);
         alert('Erro de conexão com o sistema.');
+    }
+}
+
+async function editBudget(id) {
+    try {
+        const budget = await window.pywebview.api.get_budget_details(id);
+        if (budget) {
+            currentBudgetId = budget.id;
+
+            // Preencher campos
+            document.getElementById('form-title').innerText = `Editando Orçamento #${budget.id}`;
+            document.getElementById('client-name').value = budget.client;
+            document.getElementById('client-email').value = budget.email || '';
+            document.getElementById('client-phone').value = budget.phone || '';
+            document.getElementById('client-address').value = budget.address || '';
+
+            // Carregar itens
+            currentItems = budget.items;
+            renderItems();
+
+            navigate('create');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Erro ao carregar orçamento para edição.');
     }
 }
 
@@ -177,6 +275,10 @@ async function loadHistory() {
                     <div style="text-align: right; display: flex; align-items: center; gap: 10px;">
                         <div style="font-weight: 700; color: var(--primary); margin-right: 10px;">R$ ${item.total.toFixed(2)}</div>
                         
+                        <button class="btn btn-secondary" onclick="editBudget(${item.id})" title="Editar Orçamento">
+                            ✏️
+                        </button>
+
                         <button class="btn btn-secondary" onclick="generatePDF(${item.id})" title="Gerar PDF">
                             📄
                         </button>
@@ -206,10 +308,11 @@ async function loadSettings() {
         const settings = await window.pywebview.api.get_settings();
         if (settings) {
             document.getElementById('company-name').value = settings.company || '';
-            document.getElementById('footer-text').value = settings.footer || '';
             document.getElementById('company-legal-name').value = settings.legal_name || '';
+            document.getElementById('company-cnpj').value = settings.cnpj || ''; // Carregar CNPJ
             document.getElementById('company-address').value = settings.address || '';
             document.getElementById('company-phone').value = settings.phone || '';
+            document.getElementById('footer-text').value = settings.footer || '';
 
             if (settings.pdf_path) {
                 document.getElementById('pdf-path').value = settings.pdf_path;
@@ -233,6 +336,7 @@ async function selectFolder() {
 async function saveSettings() {
     const company = document.getElementById('company-name').value;
     const legalName = document.getElementById('company-legal-name').value;
+    const cnpj = document.getElementById('company-cnpj').value; // Pegar CNPJ
     const address = document.getElementById('company-address').value;
     const phone = document.getElementById('company-phone').value;
     const footer = document.getElementById('footer-text').value;
@@ -243,6 +347,7 @@ async function saveSettings() {
         await window.pywebview.api.save_settings({
             company: company,
             legal_name: legalName,
+            cnpj: cnpj, // Enviar CNPJ
             address: address,
             phone: phone,
             footer: footer,
@@ -253,6 +358,51 @@ async function saveSettings() {
     } catch (e) { }
 }
 
+// --- UTILS: INPUT MASK ---
+function maskPhone(event) {
+    let input = event.target;
+    let value = input.value.replace(/\D/g, ""); // Remove tudo que não for dígito
+
+    // Limita tamanho
+    if (value.length > 11) value = value.slice(0, 11);
+
+    // Máscara (XX) XXXXX-XXXX
+    if (value.length > 2) {
+        value = `(${value.slice(0, 2)}) ${value.slice(2)}`;
+    }
+    if (value.length > 9) {
+        value = `${value.slice(0, 9)}-${value.slice(9)}`;
+    }
+
+    input.value = value;
+}
+
+function maskCNPJ(event) {
+    let input = event.target;
+    let value = input.value.replace(/\D/g, ""); // Remove não dígitos
+
+    if (value.length > 14) value = value.slice(0, 14);
+
+    // Máscara 00.000.000/0000-00
+    if (value.length > 2) value = value.replace(/^(\d{2})(\d)/, '$1.$2');
+    if (value.length > 5) value = value.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+    if (value.length > 8) value = value.replace(/\.(\d{3})(\d)/, '.$1/$2');
+    if (value.length > 12) value = value.replace(/(\d{4})(\d)/, '$1-$2');
+
+    input.value = value;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => loadStats(), 500);
+
+    // Phone Mask Listener
+    const phoneInput = document.getElementById('client-phone');
+    if (phoneInput) phoneInput.addEventListener('input', maskPhone);
+
+    const companyPhone = document.getElementById('company-phone');
+    if (companyPhone) companyPhone.addEventListener('input', maskPhone);
+
+    // CNPJ Mask Listener
+    const cnpjInput = document.getElementById('company-cnpj');
+    if (cnpjInput) cnpjInput.addEventListener('input', maskCNPJ);
 });

@@ -226,8 +226,21 @@ textarea:focus {
     color: white;
 }
 
+/* Novo botão de aviso (amarelo) para edição */
+.btn-warning {
+    background-color: #f59e0b;
+    color: white;
+}
+
 .btn:hover {
     opacity: 0.9;
+}
+
+/* Edição de Linhas */
+.editing-row {
+    background-color: #fffbeb;
+    /* Amarelo bem claro */
+    border-left: 3px solid #f59e0b;
 }
 
 /* History */
