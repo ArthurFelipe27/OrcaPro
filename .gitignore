@@ -1,1 +1,23 @@
+# Banco de Dados (Principal)
 orcamentos.db
+orcamento.db
+*.db
+
+# Arquivos temporários e Compilação Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller (builds e executáveis)
+build/
+dist/
+*.spec
+
+# Variáveis de ambiente
+.env
+venv/
+env/
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db

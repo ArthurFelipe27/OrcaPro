@@ -9,8 +9,19 @@ import re
 from datetime import datetime
 from fpdf import FPDF
 
-# Configuração do Banco de Dados
-DB_FILE = 'orcamentos.db'
+# --- CORREÇÃO DO CAMINHO DO BANCO DE DADOS (EVITA PERDA DE DADOS) ---
+def get_db_path():
+    # Se estiver rodando como executável (PyInstaller)
+    if getattr(sys, 'frozen', False):
+        application_path = os.path.dirname(sys.executable)
+    else:
+        # Se estiver rodando como script Python normal
+        application_path = os.path.dirname(os.path.abspath(__file__))
+    
+    return os.path.join(application_path, 'orcamentos.db')
+
+DB_FILE = get_db_path()
+# --------------------------------------------------------------------
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -26,7 +37,8 @@ def init_db():
             client_address TEXT,
             items TEXT,
             total REAL,
-            date_created TEXT
+            date_created TEXT,
+            status TEXT DEFAULT 'PENDING'
         )
     ''')
 
@@ -45,22 +57,26 @@ def init_db():
         )
     ''')
     
-    # Migrações (Adiciona colunas novas automaticamente se não existirem)
+    # Migrações (Adiciona colunas novas automaticamente)
     migrations = [
         ('settings', 'pdf_save_path', 'TEXT'),
         ('settings', 'pdf_create_subfolder', 'INTEGER'),
         ('settings', 'company_legal_name', 'TEXT'),
-        ('settings', 'company_cnpj', 'TEXT'), # Nova coluna CNPJ
+        ('settings', 'company_cnpj', 'TEXT'),
         ('settings', 'company_address', 'TEXT'),
         ('settings', 'company_phone', 'TEXT'),
         ('budgets', 'client_email', 'TEXT'),
         ('budgets', 'client_phone', 'TEXT'),
-        ('budgets', 'client_address', 'TEXT')
+        ('budgets', 'client_address', 'TEXT'),
+        ('budgets', 'status', 'TEXT') # Nova coluna de status
     ]
 
     for table, col, dtype in migrations:
         try:
             c.execute(f'ALTER TABLE {table} ADD COLUMN {col} {dtype}')
+            # Se acabou de criar a coluna status, define os antigos como PENDING
+            if col == 'status':
+                c.execute(f"UPDATE {table} SET status = 'PENDING' WHERE status IS NULL")
         except sqlite3.OperationalError:
             pass
     
@@ -89,19 +105,19 @@ class ModernPDF(FPDF):
 
     def header(self):
         # 1. Barra de Acento Superior
-        self.set_fill_color(55, 65, 81) # Cinza Chumbo Profissional
+        self.set_fill_color(55, 65, 81)
         self.rect(0, 0, 210, 5, 'F')
         
         self.ln(10)
         
-        # 2. Título do Documento e Numero (Direita)
+        # 2. Título do Documento
         self.set_font('Helvetica', 'B', 28)
-        self.set_text_color(220, 220, 220) # Cinza bem claro
+        self.set_text_color(220, 220, 220)
         self.cell(0, 10, "ORÇAMENTO", 0, 1, 'R')
         
-        self.set_y(25) # Voltar para cima para escrever o resto
+        self.set_y(25)
         
-        # 3. Dados da Empresa (Esquerda) - "DE:"
+        # 3. Dados da Empresa
         self.set_text_color(0, 0, 0)
         self.set_font('Helvetica', 'B', 14)
         self.cell(100, 7, self.company.get('name', 'Minha Empresa'), 0, 1, 'L')
@@ -112,7 +128,6 @@ class ModernPDF(FPDF):
         if self.company.get('legal_name'):
             self.cell(100, 5, self.company['legal_name'], 0, 1, 'L')
             
-        # Adicionando CNPJ logo abaixo da razão social
         if self.company.get('cnpj'):
             self.cell(100, 5, f"CNPJ: {self.company['cnpj']}", 0, 1, 'L')
             
@@ -121,7 +136,7 @@ class ModernPDF(FPDF):
         if self.company.get('phone'):
             self.cell(100, 5, f"Tel: {self.company['phone']}", 0, 1, 'L')
             
-        # 4. Dados do Orçamento (Direita - Abaixo do Titulo)
+        # 4. Dados do Orçamento
         y_pos = 38
         self.set_xy(110, y_pos)
         self.set_font('Helvetica', 'B', 10)
@@ -138,7 +153,7 @@ class ModernPDF(FPDF):
 
         self.ln(15)
         
-        # 5. Separador e Dados do Cliente "PARA:"
+        # 5. Cliente
         self.set_draw_color(200, 200, 200)
         self.line(15, self.get_y(), 195, self.get_y())
         self.ln(5)
@@ -183,8 +198,19 @@ class Api:
                 return result[0]
         return None
 
+    def update_status(self, budget_id, status):
+        """Atualiza o status de um orçamento (APPROVED, REJECTED, PENDING)"""
+        try:
+            conn = sqlite3.connect(DB_FILE)
+            c = conn.cursor()
+            c.execute('UPDATE budgets SET status = ? WHERE id = ?', (status, budget_id))
+            conn.commit()
+            conn.close()
+            return {'status': 'ok'}
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
     def delete_budget(self, budget_id):
-        """Exclui um orçamento do banco de dados."""
         try:
             conn = sqlite3.connect(DB_FILE)
             c = conn.cursor()
@@ -201,7 +227,6 @@ class Api:
             c = conn.cursor()
             items_json = json.dumps(data['items'])
             
-            # Se vier um ID, atualiza (UPDATE), senão cria novo (INSERT)
             if 'id' in data and data['id']:
                 c.execute('''
                     UPDATE budgets 
@@ -209,10 +234,11 @@ class Api:
                     WHERE id=?
                 ''', (data['client'], data.get('email', ''), data.get('phone', ''), data.get('address', ''), items_json, data['total'], data['date'], data['id']))
             else:
+                # Ao criar, define status como PENDING se não especificado
                 c.execute('''
                     INSERT INTO budgets 
-                    (client, client_email, client_phone, client_address, items, total, date_created) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (client, client_email, client_phone, client_address, items, total, date_created, status) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')
                 ''', (data['client'], data.get('email', ''), data.get('phone', ''), data.get('address', ''), items_json, data['total'], data['date']))
                 
             conn.commit()
@@ -222,7 +248,6 @@ class Api:
             return {'status': 'error', 'message': str(e)}
 
     def get_budget_details(self, budget_id):
-        """Busca todos os detalhes de um orçamento para edição."""
         conn = sqlite3.connect(DB_FILE)
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
@@ -246,17 +271,22 @@ class Api:
         conn = sqlite3.connect(DB_FILE)
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
+        # Garante que a coluna status seja retornada
         c.execute('SELECT * FROM budgets')
         rows = c.fetchall()
         results = []
         for row in rows:
             items = json.loads(row['items'])
+            # Pega o status, se for None ou vazio, assume PENDING
+            status = row['status'] if 'status' in row.keys() and row['status'] else 'PENDING'
+            
             results.append({
                 'id': row['id'],
                 'client': row['client'],
                 'total': row['total'],
                 'date': row['date_created'],
-                'items_count': len(items)
+                'items_count': len(items),
+                'status': status
             })
         conn.close()
         return results
@@ -264,10 +294,17 @@ class Api:
     def get_stats(self):
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
-        c.execute('SELECT COUNT(*), SUM(total) FROM budgets')
-        row = c.fetchone()
+        
+        # Total de Orçamentos (Quantidade)
+        c.execute('SELECT COUNT(*) FROM budgets')
+        count = c.fetchone()[0]
+        
+        # Valor Total (Apenas APROVADOS)
+        c.execute("SELECT SUM(total) FROM budgets WHERE status = 'APPROVED'")
+        total_val = c.fetchone()[0]
+        
         conn.close()
-        return {'count': row[0] if row[0] else 0, 'total': row[1] if row[1] else 0.0}
+        return {'count': count if count else 0, 'total': total_val if total_val else 0.0}
 
     def save_settings(self, data):
         conn = sqlite3.connect(DB_FILE)
@@ -276,7 +313,6 @@ class Api:
         exists = c.fetchone()
         subfolder_int = 1 if data.get('create_subfolder') else 0
         
-        # Parâmetros atualizados com CNPJ
         params = (data['company'], data.get('legal_name', ''), data.get('cnpj', ''), data.get('address', ''), data.get('phone', ''), data['footer'], data.get('pdf_path', ''), subfolder_int)
 
         if exists:
@@ -309,12 +345,13 @@ class Api:
         return {}
 
     def generate_pdf(self, budget_id):
+        # ... (Código da função generate_pdf permanece igual, sem alterações necessárias na lógica de PDF) ...
+        # (Para economizar espaço na resposta, mantenha o código original desta função aqui,
+        #  pois ela não precisa de alterações para funcionar com o status)
         try:
             conn = sqlite3.connect(DB_FILE)
             conn.row_factory = sqlite3.Row
             c = conn.cursor()
-            
-            # Buscar Orçamento e Settings
             c.execute('SELECT * FROM budgets WHERE id = ?', (budget_id,))
             budget = c.fetchone()
             c.execute('SELECT * FROM settings WHERE id = 1')
@@ -323,7 +360,6 @@ class Api:
 
             if not budget: return {'status': 'error', 'message': 'Orçamento não encontrado'}
 
-            # Mapear settings
             settings = {k: settings_row[k] for k in settings_row.keys()} if settings_row else {}
             company_data = {
                 'name': settings.get('company_name', 'Minha Empresa'),
@@ -333,9 +369,8 @@ class Api:
                 'phone': settings.get('company_phone', '')
             }
             
-            # Diretório de salvamento
             save_path = settings.get('pdf_save_path', '')
-            if not save_path or not os.path.exists(save_path): save_path = os.getcwd() # Fallback
+            if not save_path or not os.path.exists(save_path): save_path = os.getcwd()
 
             if bool(settings.get('pdf_create_subfolder', 0)):
                 safe_client = sanitize_filename(budget['client'])
@@ -344,111 +379,81 @@ class Api:
 
             items = json.loads(budget['items'])
 
-            # --- CONSTRUÇÃO DO PDF ---
             pdf = ModernPDF(company_data, budget, budget['date_created'])
             pdf.alias_nb_pages()
             pdf.add_page()
-
-            # Espaço extra antes da tabela
             pdf.ln(5)
 
-            # Cabeçalho da Tabela - VISIBILIDADE MELHORADA
             pdf.set_font('Helvetica', 'B', 10)
-            pdf.set_fill_color(50, 50, 50)  # Fundo Escuro
-            pdf.set_draw_color(50, 50, 50)  # Borda Escura
-            pdf.set_text_color(255, 255, 255) # Texto Branco
+            pdf.set_fill_color(50, 50, 50)
+            pdf.set_draw_color(50, 50, 50)
+            pdf.set_text_color(255, 255, 255)
             
-            # Ajustando larguras para A4 (180mm area util)
             w_desc, w_qty, w_unit, w_total = 90, 25, 30, 35
-            h_header = 9 # Altura do cabeçalho levemente maior
+            h_header = 9
             
             pdf.cell(w_desc, h_header, "  DESCRIÇÃO / SERVIÇO", 1, 0, 'L', True)
             pdf.cell(w_qty, h_header, "QTD", 1, 0, 'C', True)
             pdf.cell(w_unit, h_header, "UNITÁRIO", 1, 0, 'R', True)
             pdf.cell(w_total, h_header, "TOTAL  ", 1, 1, 'R', True)
             
-            # Itens da Tabela
             pdf.set_font('Helvetica', '', 10)
             pdf.set_text_color(0, 0, 0)
-            pdf.set_draw_color(220, 220, 220) # Borda cinza clara para as linhas
+            pdf.set_draw_color(220, 220, 220)
             
             for i, item in enumerate(items):
                 desc = item['desc']
                 if 'obs' in item and item['obs']: desc += f"\n(Obs: {item['obs']})"
 
-                # Efeito Zebrado (Linhas alternadas com fundo cinza bem claro)
                 fill = (i % 2 == 1)
-                if fill:
-                    pdf.set_fill_color(248, 248, 248)
-                else:
-                    pdf.set_fill_color(255, 255, 255)
+                if fill: pdf.set_fill_color(248, 248, 248)
+                else: pdf.set_fill_color(255, 255, 255)
 
-                # Salvar posições
                 x_start = pdf.get_x()
                 y_start = pdf.get_y()
                 
-                # Simular altura da descrição para desenhar o fundo corretamente
-                # O '  ' adiciona um pequeno padding visual à esquerda
                 pdf.multi_cell(w_desc, 7, "  " + desc, 'L', 'L', fill)
                 h_desc = pdf.get_y() - y_start
                 
-                # Voltar para o topo da linha e desenhar as outras colunas
                 pdf.set_xy(x_start + w_desc, y_start)
-                
-                # Desenhando as células com a mesma altura da descrição e preenchimento
                 pdf.cell(w_qty, h_desc, str(item['qty']), 0, 0, 'C', fill)
                 pdf.cell(w_unit, h_desc, f"R$ {item['price']:.2f}", 0, 0, 'R', fill)
                 pdf.cell(w_total, h_desc, f"R$ {item['total']:.2f}  ", 0, 0, 'R', fill)
                 
-                # Desenhar linha inferior da linha inteira
                 pdf.line(15, y_start + h_desc, 195, y_start + h_desc)
-                
-                pdf.ln(h_desc) # Avançar linha final
+                pdf.ln(h_desc)
 
-            # --- TOTAL GERAL EM DESTAQUE ---
             pdf.ln(8)
-            
-            # Verificar se precisa de nova página para o total
             if pdf.get_y() > 250: pdf.add_page()
             
-            # Caixa do Total
             x_total = 120
             w_total_box = 195 - x_total
             h_total_box = 12
             
-            pdf.set_fill_color(235, 235, 235) # Fundo cinza para destaque
-            pdf.set_draw_color(0, 0, 0)       # Borda preta
+            pdf.set_fill_color(235, 235, 235)
+            pdf.set_draw_color(0, 0, 0)
             pdf.set_line_width(0.3)
             
             pdf.set_x(x_total)
             pdf.rect(x_total, pdf.get_y(), w_total_box, h_total_box, 'DF')
             
             pdf.set_font('Helvetica', 'B', 12)
-            pdf.cell(40, h_total_box, "  TOTAL GERAL", 0, 0, 'L') # Label alinhado à esquerda do box
-            
+            pdf.cell(40, h_total_box, "  TOTAL GERAL", 0, 0, 'L')
             pdf.set_text_color(0, 0, 0)
-            # Valor alinhado à direita do box com padding
             pdf.cell(w_total_box - 40, h_total_box, f"R$ {budget['total']:.2f}  ", 0, 1, 'R')
             
-            # Reset de estilos
             pdf.set_line_width(0.2)
             pdf.set_text_color(0, 0, 0)
 
-            # --- RODAPÉ PERSONALIZADO (SEM TÍTULO) ---
             footer_text = settings.get('footer_text', '')
             if footer_text:
-                pdf.set_y(-35) # Posição fixa perto do fim
-                
-                # Linha separadora sutil acima da mensagem
+                pdf.set_y(-35)
                 pdf.set_draw_color(200, 200, 200)
                 pdf.line(15, pdf.get_y()-2, 195, pdf.get_y()-2)
-                
-                # Mensagem centralizada e limpa
                 pdf.set_font('Helvetica', '', 9)
                 pdf.set_text_color(60, 60, 60)
                 pdf.multi_cell(0, 5, footer_text, 0, 'C')
 
-            # Salvar e Abrir
             filename = f"Orcamento_{budget['id']}_{sanitize_filename(budget['client'])}.pdf"
             full_path = os.path.join(save_path, filename)
             pdf.output(full_path)
@@ -466,4 +471,5 @@ if __name__ == '__main__':
     api = Api()
     file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web', 'index.html')
     api.window = webview.create_window('Gerador de Orçamentos PRO', file_path, js_api=api, width=1100, height=800, min_size=(900, 650))
-    webview.start(debug=True)
+    # DEBUG DESATIVADO AQUI
+    webview.start(debug=False)

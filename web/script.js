@@ -21,8 +21,6 @@ function navigate(screenId) {
     if (screenId === 'home') loadStats();
     if (screenId === 'create') {
         // Se viemos pelo menu e não temos ID carregado, é um NOVO orçamento.
-        // Se temos currentBudgetId, é porque clicamos em editar.
-        // A lógica de resetar será feita no botão "Novo Orçamento"
     }
     if (screenId === 'history') loadHistory();
     if (screenId === 'settings') loadSettings();
@@ -108,7 +106,7 @@ function editItem(index) {
     const btn = document.getElementById('btn-add-item');
     btn.innerText = 'Atualizar Item';
     btn.classList.remove('btn-secondary');
-    btn.classList.add('btn-warning'); // Você pode adicionar estilo para btn-warning no CSS
+    btn.classList.add('btn-warning');
 
     document.getElementById('item-desc').focus();
 }
@@ -134,7 +132,6 @@ function renderItems() {
             descHtml += `<span class="item-obs-text">Obs: ${item.obs}</span>`;
         }
 
-        // Adicionei botão de editar (✏️)
         const row = `
             <tr class="${editingItemIndex === index ? 'editing-row' : ''}">
                 <td>${descHtml}</td>
@@ -166,7 +163,7 @@ async function saveBudget() {
     }
 
     const budgetData = {
-        id: currentBudgetId, // Passa o ID se for edição
+        id: currentBudgetId,
         client: client,
         phone: phone,
         email: email,
@@ -216,7 +213,26 @@ async function editBudget(id) {
     }
 }
 
-// --- LOGIC: HISTORY & PDF ---
+// --- LOGIC: HISTORY, PDF & STATUS ---
+
+// Função Nova: Atualizar Status
+async function setStatus(id, newStatus) {
+    // Tenta atualizar no backend
+    try {
+        const response = await window.pywebview.api.update_status(id, newStatus);
+        if (response.status === 'ok') {
+            // Se der certo, recarrega histórico (para ver a cor nova) e stats (para recalcular o dinheiro)
+            loadHistory();
+            loadStats();
+        } else {
+            alert('Erro ao atualizar status: ' + response.message);
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Erro de comunicação.');
+    }
+}
+
 async function generatePDF(id) {
     try {
         document.body.style.cursor = 'wait';
@@ -242,8 +258,8 @@ async function deleteBudget(id) {
     try {
         const response = await window.pywebview.api.delete_budget(id);
         if (response.status === 'ok') {
-            loadHistory(); // Recarrega a lista
-            loadStats();   // Atualiza estatísticas
+            loadHistory();
+            loadStats();
         } else {
             alert("Erro ao excluir: " + response.message);
         }
@@ -264,28 +280,48 @@ async function loadHistory() {
 
         let html = '';
         history.reverse().forEach(item => {
+            // Definição das classes e labels baseadas no status
+            let statusClass = 'status-pending';
+            let statusLabel = 'Pendente';
+
+            if (item.status === 'APPROVED') {
+                statusClass = 'status-approved';
+                statusLabel = 'Aprovado ✅';
+            } else if (item.status === 'REJECTED') {
+                statusClass = 'status-rejected';
+                statusLabel = 'Rejeitado ❌';
+            }
+
             html += `
-                <div class="history-item">
+                <div class="history-item ${statusClass}">
                     <div>
                         <div style="font-weight: 600; font-size: 1.1rem;">${item.client}</div>
                         <div style="font-size: 0.9rem; color: var(--text-muted);">
                              #${item.id} • ${item.date} • ${item.items_count} itens
                         </div>
+                        <div style="font-size: 0.8rem; font-weight: bold; margin-top: 4px; color: #555;">
+                            Status: ${statusLabel}
+                        </div>
                     </div>
-                    <div style="text-align: right; display: flex; align-items: center; gap: 10px;">
-                        <div style="font-weight: 700; color: var(--primary); margin-right: 10px;">R$ ${item.total.toFixed(2)}</div>
+                    
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+                        <div style="font-weight: 700; color: var(--text-main); font-size: 1.1rem;">R$ ${item.total.toFixed(2)}</div>
                         
-                        <button class="btn btn-secondary" onclick="editBudget(${item.id})" title="Editar Orçamento">
-                            ✏️
-                        </button>
+                        <div style="display: flex; gap: 5px;">
+                            <!-- Botões de Aprovação/Rejeição -->
+                            ${item.status !== 'APPROVED' ?
+                    `<button class="btn-icon" onclick="setStatus(${item.id}, 'APPROVED')" title="Aprovar Orçamento">✅</button>` : ''}
+                            
+                            ${item.status !== 'REJECTED' ?
+                    `<button class="btn-icon" onclick="setStatus(${item.id}, 'REJECTED')" title="Rejeitar Orçamento">❌</button>` : ''}
+                            
+                            <!-- Separador Visual -->
+                            <div style="width: 1px; background: #ccc; margin: 0 5px;"></div>
 
-                        <button class="btn btn-secondary" onclick="generatePDF(${item.id})" title="Gerar PDF">
-                            📄
-                        </button>
-                        
-                        <button class="btn btn-danger" onclick="deleteBudget(${item.id})" title="Excluir Orçamento" style="padding: 0.75rem;">
-                            🗑️
-                        </button>
+                            <button class="btn-icon" onclick="editBudget(${item.id})" title="Editar Orçamento">✏️</button>
+                            <button class="btn-icon" onclick="generatePDF(${item.id})" title="Gerar PDF">📄</button>
+                            <button class="btn-icon" onclick="deleteBudget(${item.id})" title="Excluir Orçamento" style="color: #ef4444;">🗑️</button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -299,6 +335,7 @@ async function loadStats() {
     try {
         const stats = await window.pywebview.api.get_stats();
         document.getElementById('stat-count').innerText = stats.count;
+        // O valor total vindo da API já deve estar filtrado para somar apenas os APROVADOS
         document.getElementById('stat-total').innerText = `R$ ${stats.total.toFixed(2)}`;
     } catch (e) { }
 }
@@ -309,7 +346,7 @@ async function loadSettings() {
         if (settings) {
             document.getElementById('company-name').value = settings.company || '';
             document.getElementById('company-legal-name').value = settings.legal_name || '';
-            document.getElementById('company-cnpj').value = settings.cnpj || ''; // Carregar CNPJ
+            document.getElementById('company-cnpj').value = settings.cnpj || '';
             document.getElementById('company-address').value = settings.address || '';
             document.getElementById('company-phone').value = settings.phone || '';
             document.getElementById('footer-text').value = settings.footer || '';
@@ -336,7 +373,7 @@ async function selectFolder() {
 async function saveSettings() {
     const company = document.getElementById('company-name').value;
     const legalName = document.getElementById('company-legal-name').value;
-    const cnpj = document.getElementById('company-cnpj').value; // Pegar CNPJ
+    const cnpj = document.getElementById('company-cnpj').value;
     const address = document.getElementById('company-address').value;
     const phone = document.getElementById('company-phone').value;
     const footer = document.getElementById('footer-text').value;
@@ -347,7 +384,7 @@ async function saveSettings() {
         await window.pywebview.api.save_settings({
             company: company,
             legal_name: legalName,
-            cnpj: cnpj, // Enviar CNPJ
+            cnpj: cnpj,
             address: address,
             phone: phone,
             footer: footer,
@@ -361,12 +398,10 @@ async function saveSettings() {
 // --- UTILS: INPUT MASK ---
 function maskPhone(event) {
     let input = event.target;
-    let value = input.value.replace(/\D/g, ""); // Remove tudo que não for dígito
+    let value = input.value.replace(/\D/g, "");
 
-    // Limita tamanho
     if (value.length > 11) value = value.slice(0, 11);
 
-    // Máscara (XX) XXXXX-XXXX
     if (value.length > 2) {
         value = `(${value.slice(0, 2)}) ${value.slice(2)}`;
     }
@@ -379,11 +414,10 @@ function maskPhone(event) {
 
 function maskCNPJ(event) {
     let input = event.target;
-    let value = input.value.replace(/\D/g, ""); // Remove não dígitos
+    let value = input.value.replace(/\D/g, "");
 
     if (value.length > 14) value = value.slice(0, 14);
 
-    // Máscara 00.000.000/0000-00
     if (value.length > 2) value = value.replace(/^(\d{2})(\d)/, '$1.$2');
     if (value.length > 5) value = value.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
     if (value.length > 8) value = value.replace(/\.(\d{3})(\d)/, '.$1/$2');
@@ -395,14 +429,12 @@ function maskCNPJ(event) {
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => loadStats(), 500);
 
-    // Phone Mask Listener
     const phoneInput = document.getElementById('client-phone');
     if (phoneInput) phoneInput.addEventListener('input', maskPhone);
 
     const companyPhone = document.getElementById('company-phone');
     if (companyPhone) companyPhone.addEventListener('input', maskPhone);
 
-    // CNPJ Mask Listener
     const cnpjInput = document.getElementById('company-cnpj');
     if (cnpjInput) cnpjInput.addEventListener('input', maskCNPJ);
 });
