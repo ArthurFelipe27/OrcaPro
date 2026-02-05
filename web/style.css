@@ -1,3 +1,4 @@
+/* ===[ VARIÁVEIS E RESET GLOBAL ]=== */
 :root {
     --primary: #4F46E5;
     --primary-hover: #4338ca;
@@ -24,7 +25,7 @@ body {
     overflow: hidden;
 }
 
-/* Sidebar */
+/* ===[ BARRA LATERAL (SIDEBAR) ]=== */
 .sidebar {
     width: var(--sidebar-width);
     background-color: var(--bg-card);
@@ -70,7 +71,7 @@ body {
     box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
 }
 
-/* Main */
+/* ===[ CONTEÚDO PRINCIPAL E ANIMAÇÕES ]=== */
 .main-content {
     flex: 1;
     padding: 2rem;
@@ -98,6 +99,7 @@ body {
     }
 }
 
+/* ===[ TIPOGRAFIA E TÍTULOS ]=== */
 h2 {
     font-size: 2rem;
     margin-bottom: 1.5rem;
@@ -111,7 +113,7 @@ h3 {
     color: var(--text-main);
 }
 
-/* Components */
+/* ===[ COMPONENTES GERAIS (CARDS E FORMS) ]=== */
 .card {
     background: var(--bg-card);
     border-radius: 12px;
@@ -120,7 +122,6 @@ h3 {
     margin-bottom: 1.5rem;
 }
 
-/* Grids e Forms */
 .form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -158,7 +159,7 @@ textarea:focus {
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
-/* Create Budget specific */
+/* ===[ CRIAÇÃO DE ORÇAMENTO (TABELAS E INPUTS) ]=== */
 .item-input-row {
     display: flex;
     gap: 10px;
@@ -200,7 +201,7 @@ textarea:focus {
     color: var(--primary);
 }
 
-/* Buttons */
+/* ===[ BOTÕES E ESTADOS ]=== */
 .btn {
     padding: 0.75rem 1.5rem;
     border-radius: 8px;
@@ -235,13 +236,12 @@ textarea:focus {
     opacity: 0.9;
 }
 
-/* Edição de Linhas */
 .editing-row {
     background-color: #fffbeb;
     border-left: 3px solid #f59e0b;
 }
 
-/* History */
+/* ===[ SEÇÃO DE HISTÓRICO ]=== */
 .history-item {
     display: flex;
     justify-content: space-between;
@@ -255,34 +255,7 @@ textarea:focus {
     border-bottom: none;
 }
 
-/* Help Section Cards */
-.help-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-}
-
-.help-card {
-    border: 1px solid var(--border);
-    transition: transform 0.2s;
-}
-
-.help-card:hover {
-    transform: translateY(-5px);
-}
-
-.help-card .icon {
-    font-size: 2rem;
-    margin-bottom: 1rem;
-}
-
-.help-card p {
-    font-size: 0.95rem;
-    line-height: 1.5;
-    color: var(--text-muted);
-}
-
-/* --- ESTILOS NOVOS: DASHBOARD --- */
+/* ===[ DASHBOARD E ESTATÍSTICAS ]=== */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -389,7 +362,7 @@ textarea:focus {
     border-radius: 8px;
 }
 
-/* --- ESTILOS NOVOS: STATUS COLORS --- */
+/* ===[ CORES DE STATUS (APROVADO/REJEITADO) ]=== */
 .status-pending {
     background-color: #ffffff;
     border-left: 5px solid #d1d5db;
@@ -407,7 +380,6 @@ textarea:focus {
     border-left: 5px solid #ef4444;
 }
 
-/* Botões de Ação no Histórico */
 .btn-icon {
     background: none;
     border: none;
@@ -420,4 +392,31 @@ textarea:focus {
 
 .btn-icon:hover {
     background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* ===[ SEÇÃO DE AJUDA ]=== */
+.help-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.help-card {
+    border: 1px solid var(--border);
+    transition: transform 0.2s;
+}
+
+.help-card:hover {
+    transform: translateY(-5px);
+}
+
+.help-card .icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.help-card p {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--text-muted);
 }

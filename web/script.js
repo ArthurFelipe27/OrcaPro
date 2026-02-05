@@ -1,10 +1,10 @@
-// --- STATE MANAGEMENT ---
+/* ===[ ESTADO E VARIÁVEIS GLOBAIS ]=== */
 let currentItems = [];
 let grandTotal = 0;
 let editingItemIndex = -1; // -1 significa que não estamos editando nenhum item
 let currentBudgetId = null; // null significa novo orçamento
 
-// --- NAVIGATION ---
+/* ===[ NAVEGAÇÃO ENTRE TELAS ]=== */
 function navigate(screenId) {
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
@@ -31,6 +31,7 @@ function startNewBudget() {
     navigate('create');
 }
 
+/* ===[ RESET DE FORMULÁRIOS ]=== */
 function resetForm() {
     currentBudgetId = null;
     currentItems = [];
@@ -50,7 +51,7 @@ function resetForm() {
     renderItems();
 }
 
-// --- LOGIC: ITEM MANAGEMENT ---
+/* ===[ GERENCIAMENTO DE ITENS DO ORÇAMENTO ]=== */
 function addItem() {
     const desc = document.getElementById('item-desc').value;
     const obs = document.getElementById('item-obs').value;
@@ -150,7 +151,7 @@ function renderItems() {
     document.getElementById('total-display').innerText = `Total: R$ ${grandTotal.toFixed(2)}`;
 }
 
-// --- LOGIC: BUDGET CRUD ---
+/* ===[ CRUD DE ORÇAMENTOS (SALVAR/EDITAR) ]=== */
 async function saveBudget() {
     const client = document.getElementById('client-name').value;
     const phone = document.getElementById('client-phone').value;
@@ -213,15 +214,13 @@ async function editBudget(id) {
     }
 }
 
-// --- LOGIC: HISTORY, PDF & STATUS ---
+/* ===[ HISTÓRICO, PDF E STATUS ]=== */
 
-// Função Nova: Atualizar Status
+// Atualizar Status (Aprovado/Rejeitado)
 async function setStatus(id, newStatus) {
-    // Tenta atualizar no backend
     try {
         const response = await window.pywebview.api.update_status(id, newStatus);
         if (response.status === 'ok') {
-            // Se der certo, recarrega histórico (para ver a cor nova) e stats (para recalcular o dinheiro)
             loadHistory();
             loadStats();
         } else {
@@ -280,7 +279,6 @@ async function loadHistory() {
 
         let html = '';
         history.reverse().forEach(item => {
-            // Definição das classes e labels baseadas no status
             let statusClass = 'status-pending';
             let statusLabel = 'Pendente';
 
@@ -308,14 +306,12 @@ async function loadHistory() {
                         <div style="font-weight: 700; color: var(--text-main); font-size: 1.1rem;">R$ ${item.total.toFixed(2)}</div>
                         
                         <div style="display: flex; gap: 5px;">
-                            <!-- Botões de Aprovação/Rejeição -->
                             ${item.status !== 'APPROVED' ?
                     `<button class="btn-icon" onclick="setStatus(${item.id}, 'APPROVED')" title="Aprovar Orçamento">✅</button>` : ''}
                             
                             ${item.status !== 'REJECTED' ?
                     `<button class="btn-icon" onclick="setStatus(${item.id}, 'REJECTED')" title="Rejeitar Orçamento">❌</button>` : ''}
                             
-                            <!-- Separador Visual -->
                             <div style="width: 1px; background: #ccc; margin: 0 5px;"></div>
 
                             <button class="btn-icon" onclick="editBudget(${item.id})" title="Editar Orçamento">✏️</button>
@@ -330,23 +326,18 @@ async function loadHistory() {
     } catch (e) { console.log(e); }
 }
 
-// --- LOGIC: STATS & SETTINGS ---
+/* ===[ DASHBOARD E CONFIGURAÇÕES ]=== */
 async function loadStats() {
     try {
         const stats = await window.pywebview.api.get_stats();
 
-        // Aprovados
         document.getElementById('stat-approved-value').innerText = `R$ ${stats.approved_value.toFixed(2)}`;
         document.getElementById('stat-approved-count').innerText = stats.approved_count;
 
-        // Pendentes
         document.getElementById('stat-pending-value').innerText = `R$ ${stats.pending_value.toFixed(2)}`;
         document.getElementById('stat-pending-count').innerText = stats.pending_count;
 
-        // Rejeitados
         document.getElementById('stat-rejected-count').innerText = stats.rejected_count;
-
-        // Total
         document.getElementById('stat-total-count').innerText = stats.total_count;
 
     } catch (e) {
@@ -409,7 +400,7 @@ async function saveSettings() {
     } catch (e) { }
 }
 
-// --- UTILS: INPUT MASK ---
+/* ===[ UTILITÁRIOS E INICIALIZAÇÃO ]=== */
 function maskPhone(event) {
     let input = event.target;
     let value = input.value.replace(/\D/g, "");

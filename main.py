@@ -9,21 +9,21 @@ import re
 from datetime import datetime
 from fpdf import FPDF
 
-# --- CORREÇÃO DO CAMINHO DO BANCO DE DADOS (EVITA PERDA DE DADOS) ---
+# ===[ CONFIGURAÇÃO E UTILITÁRIOS DE BANCO DE DADOS ]===
+
 def get_db_path():
-    # Se estiver rodando como executável (PyInstaller)
+    """Retorna o caminho absoluto do banco de dados para evitar perda de dados."""
     if getattr(sys, 'frozen', False):
         application_path = os.path.dirname(sys.executable)
     else:
-        # Se estiver rodando como script Python normal
         application_path = os.path.dirname(os.path.abspath(__file__))
     
     return os.path.join(application_path, 'orcamentos.db')
 
 DB_FILE = get_db_path()
-# --------------------------------------------------------------------
 
 def init_db():
+    """Inicializa as tabelas e roda migrações necessárias."""
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     
@@ -68,13 +68,12 @@ def init_db():
         ('budgets', 'client_email', 'TEXT'),
         ('budgets', 'client_phone', 'TEXT'),
         ('budgets', 'client_address', 'TEXT'),
-        ('budgets', 'status', 'TEXT') # Nova coluna de status
+        ('budgets', 'status', 'TEXT')
     ]
 
     for table, col, dtype in migrations:
         try:
             c.execute(f'ALTER TABLE {table} ADD COLUMN {col} {dtype}')
-            # Se acabou de criar a coluna status, define os antigos como PENDING
             if col == 'status':
                 c.execute(f"UPDATE {table} SET status = 'PENDING' WHERE status IS NULL")
         except sqlite3.OperationalError:
@@ -83,7 +82,10 @@ def init_db():
     conn.commit()
     conn.close()
 
+# ===[ UTILITÁRIOS DO SISTEMA ]===
+
 def open_file(filepath):
+    """Abre o arquivo gerado com o visualizador padrão do sistema."""
     if platform.system() == 'Darwin':       # macOS
         subprocess.call(('open', filepath))
     elif platform.system() == 'Windows':    # Windows
@@ -92,7 +94,10 @@ def open_file(filepath):
         subprocess.call(('xdg-open', filepath))
 
 def sanitize_filename(name):
+    """Remove caracteres ilegais para nomes de arquivo."""
     return re.sub(r'[<>:"/\\|?*]', '', name).strip()
+
+# ===[ CLASSE DE GERAÇÃO DE PDF ]===
 
 class ModernPDF(FPDF):
     def __init__(self, company_data, budget, date_str):
@@ -186,6 +191,8 @@ class ModernPDF(FPDF):
         self.set_font('Helvetica', 'I', 8)
         self.set_text_color(150, 150, 150)
         self.cell(0, 10, f'Página {self.page_no()}/{{nb}}', 0, 0, 'C')
+
+# ===[ API (BACKEND <-> FRONTEND) ]===
 
 class Api:
     def __init__(self):
@@ -481,10 +488,12 @@ class Api:
             traceback.print_exc()
             return {'status': 'error', 'message': str(e)}
 
+# ===[ EXECUÇÃO PRINCIPAL ]===
+
 if __name__ == '__main__':
     init_db()
     api = Api()
     file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web', 'index.html')
     api.window = webview.create_window('Gerador de Orçamentos PRO', file_path, js_api=api, width=1100, height=800, min_size=(900, 650))
-    # DEBUG DESATIVADO AQUI
+    # DEBUG DESATIVADO PARA PRODUÇÃO
     webview.start(debug=False)
