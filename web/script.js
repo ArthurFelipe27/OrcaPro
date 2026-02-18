@@ -1,27 +1,32 @@
 /* ===[ ESTADO E VARIÁVEIS GLOBAIS ]=== */
 let currentItems = [];
 let grandTotal = 0;
-let editingItemIndex = -1; // -1 significa que não estamos editando nenhum item
-let currentBudgetId = null; // null significa novo orçamento
+let editingItemIndex = -1;
+let currentBudgetId = null;
 
-/* ===[ NAVEGAÇÃO ENTRE TELAS ]=== */
+/* ===[ UTILITÁRIOS DE FORMATAÇÃO ]=== */
+function formatCurrency(value) {
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function parseCurrency(str) {
+    if (!str) return 0;
+    // Remove R$, espaços e substitui vírgula por ponto
+    return parseFloat(str.replace('R$', '').replace(/\./g, '').replace(',', '.').trim());
+}
+
+/* ===[ NAVEGAÇÃO ]=== */
 function navigate(screenId) {
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
+    const map = { 'home': 0, 'create': 1, 'history': 2, 'settings': 3, 'help': 4 };
     const buttons = document.querySelectorAll('.nav-btn');
-    if (screenId === 'home') buttons[0].classList.add('active');
-    if (screenId === 'create') buttons[1].classList.add('active');
-    if (screenId === 'history') buttons[2].classList.add('active');
-    if (screenId === 'settings') buttons[3].classList.add('active');
-    if (screenId === 'help') buttons[4].classList.add('active');
+    if (map[screenId] !== undefined) buttons[map[screenId]].classList.add('active');
 
     document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
 
     if (screenId === 'home') loadStats();
-    if (screenId === 'create') {
-        // Se viemos pelo menu e não temos ID carregado, é um NOVO orçamento.
-    }
     if (screenId === 'history') loadHistory();
     if (screenId === 'settings') loadSettings();
 }
@@ -31,7 +36,7 @@ function startNewBudget() {
     navigate('create');
 }
 
-/* ===[ RESET DE FORMULÁRIOS ]=== */
+/* ===[ RESET E ITENS ]=== */
 function resetForm() {
     currentBudgetId = null;
     currentItems = [];
@@ -40,8 +45,6 @@ function resetForm() {
     document.getElementById('client-phone').value = '';
     document.getElementById('client-email').value = '';
     document.getElementById('client-address').value = '';
-
-    // Reset item inputs
     document.getElementById('item-desc').value = '';
     document.getElementById('item-obs').value = '';
     document.getElementById('item-qty').value = '1';
@@ -51,15 +54,28 @@ function resetForm() {
     renderItems();
 }
 
-/* ===[ GERENCIAMENTO DE ITENS DO ORÇAMENTO ]=== */
+function maskMoneyInput(input) {
+    let value = input.value.replace(/\D/g, "");
+    value = (value / 100).toFixed(2) + "";
+    value = value.replace(".", ",");
+    value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+    input.value = value;
+}
+
+function getMoneyValue(inputId) {
+    const val = document.getElementById(inputId).value;
+    if (!val) return 0;
+    return parseFloat(val.replace(/\./g, '').replace(',', '.'));
+}
+
 function addItem() {
     const desc = document.getElementById('item-desc').value;
     const obs = document.getElementById('item-obs').value;
     const qty = parseFloat(document.getElementById('item-qty').value);
-    const price = parseFloat(document.getElementById('item-price').value);
+    const price = getMoneyValue('item-price');
 
-    if (!desc || isNaN(qty) || isNaN(price)) {
-        alert('Preencha a descrição, quantidade e preço.');
+    if (!desc || isNaN(qty) || price <= 0) {
+        alert('Preencha a descrição, quantidade e um preço válido.');
         return;
     }
 
@@ -67,17 +83,14 @@ function addItem() {
     const newItem = { desc, obs, qty, price, total };
 
     if (editingItemIndex >= 0) {
-        // Atualizando item existente
         currentItems[editingItemIndex] = newItem;
         resetItemEditState();
     } else {
-        // Adicionando novo
         currentItems.push(newItem);
     }
 
     renderItems();
 
-    // Limpar campos
     document.getElementById('item-desc').value = '';
     document.getElementById('item-obs').value = '';
     document.getElementById('item-qty').value = '1';
@@ -95,20 +108,20 @@ function resetItemEditState() {
 
 function editItem(index) {
     const item = currentItems[index];
-
     document.getElementById('item-desc').value = item.desc;
     document.getElementById('item-obs').value = item.obs || '';
     document.getElementById('item-qty').value = item.qty;
-    document.getElementById('item-price').value = item.price;
+
+    // Formatar preço para o input
+    let priceStr = item.price.toFixed(2).replace('.', ',');
+    // Adicionar separadores de milhar manualmente se necessário, ou deixar simples
+    document.getElementById('item-price').value = priceStr;
 
     editingItemIndex = index;
-
-    // Mudar botão para indicar edição
     const btn = document.getElementById('btn-add-item');
     btn.innerText = 'Atualizar Item';
     btn.classList.remove('btn-secondary');
     btn.classList.add('btn-warning');
-
     document.getElementById('item-desc').focus();
 }
 
@@ -127,31 +140,28 @@ function renderItems() {
 
     currentItems.forEach((item, index) => {
         grandTotal += item.total;
-
         let descHtml = `<strong>${item.desc}</strong>`;
-        if (item.obs) {
-            descHtml += `<span class="item-obs-text">Obs: ${item.obs}</span>`;
-        }
+        if (item.obs) descHtml += `<span class="item-obs-text">Obs: ${item.obs}</span>`;
 
         const row = `
             <tr class="${editingItemIndex === index ? 'editing-row' : ''}">
                 <td>${descHtml}</td>
                 <td>${item.qty}</td>
-                <td>R$ ${item.price.toFixed(2)}</td>
-                <td>R$ ${item.total.toFixed(2)}</td>
+                <td>${formatCurrency(item.price)}</td>
+                <td>${formatCurrency(item.total)}</td>
                 <td>
-                    <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8rem; margin-right: 5px;" onclick="editItem(${index})" title="Editar Item">✏️</button>
-                    <button class="btn btn-danger" style="padding: 5px 10px; font-size: 0.8rem;" onclick="removeItem(${index})" title="Remover Item">X</button>
+                    <button class="btn btn-secondary" style="padding: 5px 10px;" onclick="editItem(${index})">✏️</button>
+                    <button class="btn btn-danger" style="padding: 5px 10px;" onclick="removeItem(${index})">X</button>
                 </td>
             </tr>
         `;
         tbody.innerHTML += row;
     });
 
-    document.getElementById('total-display').innerText = `Total: R$ ${grandTotal.toFixed(2)}`;
+    document.getElementById('total-display').innerText = `Total: ${formatCurrency(grandTotal)}`;
 }
 
-/* ===[ CRUD DE ORÇAMENTOS (SALVAR/EDITAR) ]=== */
+/* ===[ SALVAR ORÇAMENTO ]=== */
 async function saveBudget() {
     const client = document.getElementById('client-name').value;
     const phone = document.getElementById('client-phone').value;
@@ -160,6 +170,13 @@ async function saveBudget() {
 
     if (!client || currentItems.length === 0) {
         alert('Informe o nome do cliente e adicione itens.');
+        return;
+    }
+
+    // Validação estrita de telefone
+    const cleanPhone = phone.replace(/\D/g, "");
+    if (cleanPhone.length < 10) {
+        alert('Por favor, informe um telefone válido com DDD (mínimo 10 dígitos).');
         return;
     }
 
@@ -184,7 +201,6 @@ async function saveBudget() {
             alert('Erro ao salvar: ' + response.message);
         }
     } catch (e) {
-        console.error("Erro:", e);
         alert('Erro de conexão com o sistema.');
     }
 }
@@ -194,42 +210,24 @@ async function editBudget(id) {
         const budget = await window.pywebview.api.get_budget_details(id);
         if (budget) {
             currentBudgetId = budget.id;
-
-            // Preencher campos
             document.getElementById('form-title').innerText = `Editando Orçamento #${budget.id}`;
             document.getElementById('client-name').value = budget.client;
             document.getElementById('client-email').value = budget.email || '';
             document.getElementById('client-phone').value = budget.phone || '';
             document.getElementById('client-address').value = budget.address || '';
-
-            // Carregar itens
             currentItems = budget.items;
             renderItems();
-
             navigate('create');
         }
-    } catch (e) {
-        console.error(e);
-        alert('Erro ao carregar orçamento para edição.');
-    }
+    } catch (e) { alert('Erro ao carregar orçamento.'); }
 }
 
-/* ===[ HISTÓRICO, PDF E STATUS ]=== */
-
-// Atualizar Status (Aprovado/Rejeitado)
+/* ===[ HISTÓRICO ]=== */
 async function setStatus(id, newStatus) {
     try {
         const response = await window.pywebview.api.update_status(id, newStatus);
-        if (response.status === 'ok') {
-            loadHistory();
-            loadStats();
-        } else {
-            alert('Erro ao atualizar status: ' + response.message);
-        }
-    } catch (e) {
-        console.error(e);
-        alert('Erro de comunicação.');
-    }
+        if (response.status === 'ok') { loadHistory(); loadStats(); }
+    } catch (e) { }
 }
 
 async function generatePDF(id) {
@@ -239,7 +237,8 @@ async function generatePDF(id) {
         document.body.style.cursor = 'default';
 
         if (response.status === 'ok') {
-            console.log("PDF Gerado:", response.file);
+            // Se salvo automaticamente, ok. Se for temp, o Python já abre.
+            console.log("PDF:", response.file);
         } else {
             alert('Erro ao gerar PDF: ' + response.message);
         }
@@ -250,28 +249,18 @@ async function generatePDF(id) {
 }
 
 async function deleteBudget(id) {
-    if (!confirm("Tem certeza que deseja excluir este orçamento permanentemente?")) {
-        return;
-    }
-
+    if (!confirm("Excluir permanentemente?")) return;
     try {
-        const response = await window.pywebview.api.delete_budget(id);
-        if (response.status === 'ok') {
-            loadHistory();
-            loadStats();
-        } else {
-            alert("Erro ao excluir: " + response.message);
-        }
-    } catch (e) {
-        alert("Erro ao conectar com o sistema.");
-    }
+        await window.pywebview.api.delete_budget(id);
+        loadHistory();
+        loadStats();
+    } catch (e) { }
 }
 
 async function loadHistory() {
     try {
         const history = await window.pywebview.api.get_history();
         const container = document.getElementById('history-container');
-
         if (history.length === 0) {
             container.innerHTML = '<p style="text-align:center; color: #666; margin-top: 20px;">Nenhum orçamento encontrado.</p>';
             return;
@@ -281,14 +270,8 @@ async function loadHistory() {
         history.reverse().forEach(item => {
             let statusClass = 'status-pending';
             let statusLabel = 'Pendente';
-
-            if (item.status === 'APPROVED') {
-                statusClass = 'status-approved';
-                statusLabel = 'Aprovado ✅';
-            } else if (item.status === 'REJECTED') {
-                statusClass = 'status-rejected';
-                statusLabel = 'Rejeitado ❌';
-            }
+            if (item.status === 'APPROVED') { statusClass = 'status-approved'; statusLabel = 'Aprovado ✅'; }
+            else if (item.status === 'REJECTED') { statusClass = 'status-rejected'; statusLabel = 'Rejeitado ❌'; }
 
             html += `
                 <div class="history-item ${statusClass}">
@@ -297,138 +280,146 @@ async function loadHistory() {
                         <div style="font-size: 0.9rem; color: var(--text-muted);">
                              #${item.id} • ${item.date} • ${item.items_count} itens
                         </div>
-                        <div style="font-size: 0.8rem; font-weight: bold; margin-top: 4px; color: #555;">
-                            Status: ${statusLabel}
-                        </div>
+                        <div style="font-size: 0.8rem; font-weight: bold; margin-top: 4px; color: #555;">${statusLabel}</div>
                     </div>
-                    
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
-                        <div style="font-weight: 700; color: var(--text-main); font-size: 1.1rem;">R$ ${item.total.toFixed(2)}</div>
-                        
+                        <div style="font-weight: 700; color: var(--text-main); font-size: 1.1rem;">${formatCurrency(item.total)}</div>
                         <div style="display: flex; gap: 5px;">
-                            ${item.status !== 'APPROVED' ?
-                    `<button class="btn-icon" onclick="setStatus(${item.id}, 'APPROVED')" title="Aprovar Orçamento">✅</button>` : ''}
-                            
-                            ${item.status !== 'REJECTED' ?
-                    `<button class="btn-icon" onclick="setStatus(${item.id}, 'REJECTED')" title="Rejeitar Orçamento">❌</button>` : ''}
-                            
+                            ${item.status !== 'APPROVED' ? `<button class="btn-icon" onclick="setStatus(${item.id}, 'APPROVED')" title="Aprovar">✅</button>` : ''}
+                            ${item.status !== 'REJECTED' ? `<button class="btn-icon" onclick="setStatus(${item.id}, 'REJECTED')" title="Rejeitar">❌</button>` : ''}
                             <div style="width: 1px; background: #ccc; margin: 0 5px;"></div>
-
-                            <button class="btn-icon" onclick="editBudget(${item.id})" title="Editar Orçamento">✏️</button>
-                            <button class="btn-icon" onclick="generatePDF(${item.id})" title="Gerar PDF">📄</button>
-                            <button class="btn-icon" onclick="deleteBudget(${item.id})" title="Excluir Orçamento" style="color: #ef4444;">🗑️</button>
+                            <button class="btn-icon" onclick="editBudget(${item.id})" title="Editar">✏️</button>
+                            <button class="btn-icon" onclick="generatePDF(${item.id})" title="PDF">📄</button>
+                            <button class="btn-icon" onclick="deleteBudget(${item.id})" title="Excluir" style="color: #ef4444;">🗑️</button>
                         </div>
                     </div>
                 </div>
             `;
         });
         container.innerHTML = html;
-    } catch (e) { console.log(e); }
+    } catch (e) { }
 }
 
-/* ===[ DASHBOARD E CONFIGURAÇÕES ]=== */
 async function loadStats() {
     try {
         const stats = await window.pywebview.api.get_stats();
-
-        document.getElementById('stat-approved-value').innerText = `R$ ${stats.approved_value.toFixed(2)}`;
+        document.getElementById('stat-approved-value').innerText = formatCurrency(stats.approved_value);
         document.getElementById('stat-approved-count').innerText = stats.approved_count;
-
-        document.getElementById('stat-pending-value').innerText = `R$ ${stats.pending_value.toFixed(2)}`;
+        document.getElementById('stat-pending-value').innerText = formatCurrency(stats.pending_value);
         document.getElementById('stat-pending-count').innerText = stats.pending_count;
-
         document.getElementById('stat-rejected-count').innerText = stats.rejected_count;
         document.getElementById('stat-total-count').innerText = stats.total_count;
+    } catch (e) { }
+}
 
-    } catch (e) {
-        console.error("Erro ao carregar estatísticas:", e);
-    }
+/* ===[ CONFIGURAÇÕES ]=== */
+async function selectFolder() {
+    try {
+        const path = await window.pywebview.api.select_folder();
+        if (path) document.getElementById('pdf-path').value = path;
+    } catch (e) { }
+}
+
+async function selectLogo() {
+    try {
+        const response = await window.pywebview.api.select_logo();
+        if (response.status === 'ok') {
+            document.getElementById('logo-path').value = response.path;
+            const preview = document.getElementById('logo-preview');
+            // Adiciona timestamp para forçar reload da imagem se for o mesmo nome
+            preview.src = response.path + '?t=' + new Date().getTime();
+            preview.style.display = 'block';
+            document.getElementById('logo-placeholder').style.display = 'none';
+        } else if (response.status === 'error') {
+            alert(response.message);
+        }
+    } catch (e) { console.error(e); }
 }
 
 async function loadSettings() {
     try {
-        const settings = await window.pywebview.api.get_settings();
-        if (settings) {
-            document.getElementById('company-name').value = settings.company || '';
-            document.getElementById('company-legal-name').value = settings.legal_name || '';
-            document.getElementById('company-cnpj').value = settings.cnpj || '';
-            document.getElementById('company-address').value = settings.address || '';
-            document.getElementById('company-phone').value = settings.phone || '';
-            document.getElementById('footer-text').value = settings.footer || '';
+        const s = await window.pywebview.api.get_settings();
+        if (s) {
+            document.getElementById('company-name').value = s.company || '';
+            document.getElementById('company-legal-name').value = s.legal_name || '';
+            document.getElementById('company-cnpj').value = s.cnpj || '';
+            document.getElementById('company-address').value = s.address || '';
+            document.getElementById('company-phone').value = s.phone || '';
+            document.getElementById('footer-text').value = s.footer || '';
+            document.getElementById('pdf-path').value = s.pdf_path || '';
+            document.getElementById('pdf-subfolder').checked = s.create_subfolder;
+            document.getElementById('pdf-auto-save').checked = s.auto_save;
 
-            if (settings.pdf_path) {
-                document.getElementById('pdf-path').value = settings.pdf_path;
+            // Logo
+            if (s.logo_path) {
+                document.getElementById('logo-path').value = s.logo_path;
+                const preview = document.getElementById('logo-preview');
+                preview.src = s.logo_path + '?t=' + new Date().getTime();
+                preview.style.display = 'block';
+                document.getElementById('logo-placeholder').style.display = 'none';
             }
-            document.getElementById('pdf-subfolder').checked = settings.create_subfolder;
+
+            // Pagamentos
+            document.getElementById('pay-pix').checked = s.payment_pix;
+            document.getElementById('pay-credit').checked = s.payment_credit;
+            document.getElementById('pay-debit').checked = s.payment_debit;
+            document.getElementById('pay-cash').checked = s.payment_cash;
         }
     } catch (e) { }
 }
 
-async function selectFolder() {
-    try {
-        const path = await window.pywebview.api.select_folder();
-        if (path) {
-            document.getElementById('pdf-path').value = path;
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
 async function saveSettings() {
-    const company = document.getElementById('company-name').value;
-    const legalName = document.getElementById('company-legal-name').value;
-    const cnpj = document.getElementById('company-cnpj').value;
-    const address = document.getElementById('company-address').value;
-    const phone = document.getElementById('company-phone').value;
-    const footer = document.getElementById('footer-text').value;
-    const pdfPath = document.getElementById('pdf-path').value;
-    const createSubfolder = document.getElementById('pdf-subfolder').checked;
-
     try {
         await window.pywebview.api.save_settings({
-            company: company,
-            legal_name: legalName,
-            cnpj: cnpj,
-            address: address,
-            phone: phone,
-            footer: footer,
-            pdf_path: pdfPath,
-            create_subfolder: createSubfolder
+            company: document.getElementById('company-name').value,
+            legal_name: document.getElementById('company-legal-name').value,
+            cnpj: document.getElementById('company-cnpj').value,
+            address: document.getElementById('company-address').value,
+            phone: document.getElementById('company-phone').value,
+            footer: document.getElementById('footer-text').value,
+            pdf_path: document.getElementById('pdf-path').value,
+            create_subfolder: document.getElementById('pdf-subfolder').checked,
+            auto_save: document.getElementById('pdf-auto-save').checked,
+            logo_path: document.getElementById('logo-path').value,
+            payment_pix: document.getElementById('pay-pix').checked,
+            payment_credit: document.getElementById('pay-credit').checked,
+            payment_debit: document.getElementById('pay-debit').checked,
+            payment_cash: document.getElementById('pay-cash').checked,
         });
         alert('Configurações salvas!');
     } catch (e) { }
 }
 
-/* ===[ UTILITÁRIOS E INICIALIZAÇÃO ]=== */
+/* ===[ MÁSCARAS E INPUTS ]=== */
 function maskPhone(event) {
     let input = event.target;
     let value = input.value.replace(/\D/g, "");
 
+    // Limita a 11 números
     if (value.length > 11) value = value.slice(0, 11);
 
-    if (value.length > 2) {
-        value = `(${value.slice(0, 2)}) ${value.slice(2)}`;
+    // Formatação
+    if (value.length > 10) {
+        // (11) 9 1234-5678 (Padrão com 9º dígito separado)
+        value = value.replace(/^(\d{2})(\d{1})(\d{4})(\d{4}).*/, '($1) $2 $3-$4');
+    } else if (value.length > 6) {
+        // (11) 1234-5678 (Fixo)
+        value = value.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3');
+    } else if (value.length > 2) {
+        value = value.replace(/^(\d{2})(\d{0,5}).*/, '($1) $2');
     }
-    if (value.length > 9) {
-        value = `${value.slice(0, 9)}-${value.slice(9)}`;
-    }
-
     input.value = value;
 }
 
 function maskCNPJ(event) {
     let input = event.target;
-    let value = input.value.replace(/\D/g, "");
-
-    if (value.length > 14) value = value.slice(0, 14);
-
-    if (value.length > 2) value = value.replace(/^(\d{2})(\d)/, '$1.$2');
-    if (value.length > 5) value = value.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
-    if (value.length > 8) value = value.replace(/\.(\d{3})(\d)/, '.$1/$2');
-    if (value.length > 12) value = value.replace(/(\d{4})(\d)/, '$1-$2');
-
-    input.value = value;
+    let v = input.value.replace(/\D/g, "");
+    if (v.length > 14) v = v.slice(0, 14);
+    v = v.replace(/^(\d{2})(\d)/, '$1.$2');
+    v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+    v = v.replace(/\.(\d{3})(\d)/, '.$1/$2');
+    v = v.replace(/(\d{4})(\d)/, '$1-$2');
+    input.value = v;
 }
 
 document.addEventListener('DOMContentLoaded', () => {

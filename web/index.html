@@ -99,8 +99,8 @@
                         <input type="text" id="client-name" placeholder="Ex: João da Silva">
                     </div>
                     <div class="form-group">
-                        <label>Telefone / WhatsApp</label>
-                        <input type="text" id="client-phone" placeholder="(00) 00000-0000" maxlength="15">
+                        <label>Telefone / WhatsApp *</label>
+                        <input type="text" id="client-phone" placeholder="(61) 9 9999-9999" maxlength="16">
                     </div>
                     <div class="form-group">
                         <label>E-mail</label>
@@ -125,7 +125,7 @@
                         <input type="number" id="item-qty" placeholder="Qtd" value="1">
                     </div>
                     <div style="flex: 1;">
-                        <input type="number" id="item-price" placeholder="Preço (R$)">
+                        <input type="text" id="item-price" placeholder="Preço (R$)" oninput="maskMoneyInput(this)">
                     </div>
                     <button id="btn-add-item" class="btn btn-secondary"
                         style="height: fit-content; align-self: flex-start;" onclick="addItem()">Adicionar</button>
@@ -170,10 +170,30 @@
         <section id="settings" class="section">
             <h2>Configurações</h2>
             <div class="card">
-                <h3>Dados da Empresa</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px;">Essas informações
-                    aparecerão no cabeçalho do PDF.</p>
 
+                <!-- Identidade Visual -->
+                <h3>Identidade Visual</h3>
+                <div class="form-group">
+                    <label>Logotipo da Empresa</label>
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <div id="logo-preview-container"
+                            style="width: 80px; height: 80px; background: #f3f4f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px dashed #ccc; overflow: hidden;">
+                            <span id="logo-placeholder" style="font-size: 0.8rem; color: #999;">Sem Logo</span>
+                            <img id="logo-preview" src=""
+                                style="width: 100%; height: 100%; object-fit: contain; display: none;">
+                        </div>
+                        <div>
+                            <button class="btn btn-secondary" onclick="selectLogo()">📸 Escolher Logotipo</button>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;">Suporta alta
+                                resolução (até 3300px). Recomendado: Quadrada.</p>
+                        </div>
+                    </div>
+                    <input type="hidden" id="logo-path">
+                </div>
+
+                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--border);">
+
+                <h3>Dados da Empresa</h3>
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Nome Fantasia (Principal)</label>
@@ -189,7 +209,7 @@
                     </div>
                     <div class="form-group">
                         <label>Telefone da Empresa</label>
-                        <input type="text" id="company-phone" placeholder="(00) 0000-0000" maxlength="15">
+                        <input type="text" id="company-phone" placeholder="(00) 0000-0000" maxlength="16">
                     </div>
                     <div class="form-group" style="grid-column: span 2;">
                         <label>Endereço da Empresa</label>
@@ -199,15 +219,38 @@
 
                 <div class="form-group">
                     <label>Rodapé Padrão do Orçamento</label>
-                    <textarea id="footer-text" rows="3"
-                        placeholder="Obrigado pela preferência! Pagamento em até 3x."></textarea>
+                    <textarea id="footer-text" rows="2"
+                        placeholder="Mensagem de agradecimento ou observações gerais."></textarea>
+                </div>
+
+                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--border);">
+
+                <h3>Formas de Pagamento</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px;">Selecione quais opções
+                    aparecerão no PDF.</p>
+                <div class="checkbox-group">
+                    <label class="checkbox-label"><input type="checkbox" id="pay-pix"> PIX</label>
+                    <label class="checkbox-label"><input type="checkbox" id="pay-credit"> Cartão de Crédito</label>
+                    <label class="checkbox-label"><input type="checkbox" id="pay-debit"> Cartão de Débito</label>
+                    <label class="checkbox-label"><input type="checkbox" id="pay-cash"> Dinheiro</label>
                 </div>
 
                 <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--border);">
 
                 <h3>Exportação de PDF</h3>
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="pdf-auto-save" style="width: auto;">
+                        <label for="pdf-auto-save" style="margin: 0; cursor: pointer;">Salvar automaticamente após
+                            gerar?</label>
+                    </div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-left: 25px;">Se desmarcado, o arquivo
+                        abrirá apenas para visualização.</p>
+                </div>
+
                 <div class="form-group">
-                    <label>Onde salvar os orçamentos?</label>
+                    <label>Pasta de Salvamento (se automático)</label>
                     <div style="display: flex; gap: 10px;">
                         <input type="text" id="pdf-path" readonly placeholder="Pasta padrão do sistema"
                             style="background-color: #f9fafb; cursor: default;">
@@ -215,7 +258,7 @@
                     </div>
                 </div>
 
-                <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                <div class="checkbox-wrapper">
                     <input type="checkbox" id="pdf-subfolder" style="width: auto;">
                     <label for="pdf-subfolder" style="margin: 0; cursor: pointer;">Criar pasta separada para cada
                         cliente?</label>
@@ -232,32 +275,21 @@
             <h2>Central de Ajuda</h2>
             <div class="help-grid">
                 <div class="card help-card">
-                    <div class="icon">⚙️</div>
-                    <h3>Dados da Empresa</h3>
-                    <p>Preencha os dados completos da sua empresa (Nome, Razão Social, CNPJ, Endereço e Telefone) para
-                        que o
-                        PDF fique profissional.</p>
+                    <div class="icon">🖼️</div>
+                    <h3>Logotipo</h3>
+                    <p>Adicione a marca da sua empresa. O sistema aceita imagens e as redimensiona automaticamente para
+                        caber no PDF.</p>
                 </div>
-
                 <div class="card help-card">
-                    <div class="icon">📝</div>
-                    <h3>Criar Orçamento</h3>
-                    <p>Preencha os dados do cliente. Itens podem ter observações técnicas que aparecem logo abaixo da
-                        descrição.</p>
+                    <div class="icon">💳</div>
+                    <h3>Pagamentos</h3>
+                    <p>Configure quais formas de pagamento você aceita (Pix, Cartão, Dinheiro) na aba Configurações.</p>
                 </div>
-
-                <div class="card help-card">
-                    <div class="icon">📂</div>
-                    <h3>Salvar PDFs</h3>
-                    <p>Você pode escolher a pasta onde os PDFs serão salvos e se deseja organizar automaticamente em
-                        subpastas por cliente.</p>
-                </div>
-
                 <div class="card help-card">
                     <div class="icon">💾</div>
-                    <h3>Backup</h3>
-                    <p>Todos os dados ficam salvos no arquivo <code>orcamentos.db</code>. Copie este arquivo para fazer
-                        backup.</p>
+                    <h3>Salvamento</h3>
+                    <p>Você pode optar por salvar automaticamente os PDFs em uma pasta ou apenas visualizá-los
+                        temporariamente.</p>
                 </div>
             </div>
         </section>

@@ -71,7 +71,7 @@ body {
     box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
 }
 
-/* ===[ CONTEÚDO PRINCIPAL E ANIMAÇÕES ]=== */
+/* ===[ CONTEÚDO PRINCIPAL ]=== */
 .main-content {
     flex: 1;
     padding: 2rem;
@@ -99,7 +99,7 @@ body {
     }
 }
 
-/* ===[ TIPOGRAFIA E TÍTULOS ]=== */
+/* ===[ TIPOGRAFIA ]=== */
 h2 {
     font-size: 2rem;
     margin-bottom: 1.5rem;
@@ -113,7 +113,7 @@ h3 {
     color: var(--text-main);
 }
 
-/* ===[ COMPONENTES GERAIS (CARDS E FORMS) ]=== */
+/* ===[ FORMS E INPUTS ]=== */
 .card {
     background: var(--bg-card);
     border-radius: 12px;
@@ -140,7 +140,9 @@ label {
     font-size: 0.9rem;
 }
 
-input,
+input[type="text"],
+input[type="email"],
+input[type="number"],
 textarea,
 select {
     width: 100%;
@@ -159,7 +161,33 @@ textarea:focus {
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
-/* ===[ CRIAÇÃO DE ORÇAMENTO (TABELAS E INPUTS) ]=== */
+/* ===[ NOVOS ESTILOS: CHECKBOXES E LAYOUT ]=== */
+.checkbox-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 1rem;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    background: #f9fafb;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+}
+
+/* ===[ TABELAS ]=== */
 .item-input-row {
     display: flex;
     gap: 10px;
@@ -201,7 +229,7 @@ textarea:focus {
     color: var(--primary);
 }
 
-/* ===[ BOTÕES E ESTADOS ]=== */
+/* ===[ BOTÕES ]=== */
 .btn {
     padding: 0.75rem 1.5rem;
     border-radius: 8px;
@@ -236,26 +264,26 @@ textarea:focus {
     opacity: 0.9;
 }
 
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.btn-icon:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
 .editing-row {
     background-color: #fffbeb;
     border-left: 3px solid #f59e0b;
 }
 
-/* ===[ SEÇÃO DE HISTÓRICO ]=== */
-.history-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    border-bottom: 1px solid var(--border);
-    transition: background-color 0.2s;
-}
-
-.history-item:last-child {
-    border-bottom: none;
-}
-
-/* ===[ DASHBOARD E ESTATÍSTICAS ]=== */
+/* ===[ DASHBOARD E HISTÓRICO ]=== */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -268,7 +296,6 @@ textarea:focus {
     border-radius: 12px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     border-left: 5px solid transparent;
-    /* Borda colorida à esquerda */
     transition: transform 0.2s;
 }
 
@@ -301,7 +328,6 @@ textarea:focus {
     color: #9CA3AF;
 }
 
-/* Cores Específicas Dashboard */
 .border-green {
     border-left-color: #10B981;
 }
@@ -362,7 +388,18 @@ textarea:focus {
     border-radius: 8px;
 }
 
-/* ===[ CORES DE STATUS (APROVADO/REJEITADO) ]=== */
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
 .status-pending {
     background-color: #ffffff;
     border-left: 5px solid #d1d5db;
@@ -370,31 +407,15 @@ textarea:focus {
 
 .status-approved {
     background-color: #f0fdf4;
-    /* Verde muito claro */
     border-left: 5px solid #22c55e;
 }
 
 .status-rejected {
     background-color: #fef2f2;
-    /* Vermelho muito claro */
     border-left: 5px solid #ef4444;
 }
 
-.btn-icon {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1.2rem;
-    padding: 5px;
-    border-radius: 4px;
-    transition: background 0.2s;
-}
-
-.btn-icon:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* ===[ SEÇÃO DE AJUDA ]=== */
+/* ===[ HELP ]=== */
 .help-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
