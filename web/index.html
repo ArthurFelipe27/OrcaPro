@@ -15,73 +15,73 @@
 <body>
 
     <!-- ===[ BARRA LATERAL (SIDEBAR) ]=== -->
-    <nav class="sidebar">
+    <nav class="barra-lateral">
         <div class="logo">
             <span>⚡ OrcaPro</span>
         </div>
-        <button class="nav-btn active" onclick="navigate('home')">Início</button>
-        <button class="nav-btn" onclick="startNewBudget()">Criar Orçamento</button>
-        <button class="nav-btn" onclick="navigate('history')">Histórico</button>
-        <button class="nav-btn" onclick="navigate('settings')">Configurações</button>
-        <button class="nav-btn" onclick="navigate('help')">Ajuda</button>
+        <button class="btn-nav ativo" onclick="navegar('inicio')">Início</button>
+        <button class="btn-nav" onclick="iniciarNovoOrcamento()">Criar Orçamento</button>
+        <button class="btn-nav" onclick="navegar('historico')">Histórico</button>
+        <button class="btn-nav" onclick="navegar('configuracoes')">Configurações</button>
+        <button class="btn-nav" onclick="navegar('ajuda')">Ajuda</button>
     </nav>
 
     <!-- ===[ ÁREA DE CONTEÚDO PRINCIPAL ]=== -->
-    <main class="main-content">
+    <main class="conteudo-principal">
 
         <!-- ===[ SEÇÃO: DASHBOARD INICIAL ]=== -->
-        <section id="home" class="section active">
+        <section id="inicio" class="secao ativa">
             <h2>Visão Geral do Negócio</h2>
 
-            <div class="stats-grid">
+            <div class="grade-estatisticas">
                 <!-- Cartão: Aprovados (Verde) -->
-                <div class="stat-card border-green">
-                    <div class="stat-header">
-                        <div class="stat-label">Faturamento (Aprovados)</div>
-                        <div class="stat-icon green">💰</div>
+                <div class="cartao-stat borda-verde">
+                    <div class="stat-cabecalho">
+                        <div class="stat-rotulo">Faturamento (Aprovados)</div>
+                        <div class="stat-icone verde">💰</div>
                     </div>
-                    <div class="stat-value green-text" id="stat-approved-value">R$ 0,00</div>
-                    <div class="stat-sub">Total de <span id="stat-approved-count">0</span> orçamentos</div>
+                    <div class="stat-valor texto-verde" id="stat-aprovado-valor">R$ 0,00</div>
+                    <div class="stat-sub">Total de <span id="stat-aprovado-qtd">0</span> orçamentos</div>
                 </div>
 
                 <!-- Cartão: Pendentes (Amarelo) -->
-                <div class="stat-card border-yellow">
-                    <div class="stat-header">
-                        <div class="stat-label">Em Aberto (Pendentes)</div>
-                        <div class="stat-icon yellow">⏳</div>
+                <div class="cartao-stat borda-amarela">
+                    <div class="stat-cabecalho">
+                        <div class="stat-rotulo">Em Aberto (Pendentes)</div>
+                        <div class="stat-icone amarelo">⏳</div>
                     </div>
-                    <div class="stat-value yellow-text" id="stat-pending-value">R$ 0,00</div>
-                    <div class="stat-sub">Aguardando <span id="stat-pending-count">0</span> respostas</div>
+                    <div class="stat-valor texto-amarelo" id="stat-pendente-valor">R$ 0,00</div>
+                    <div class="stat-sub">Aguardando <span id="stat-pendente-qtd">0</span> respostas</div>
                 </div>
 
                 <!-- Cartão: Rejeitados (Vermelho) -->
-                <div class="stat-card border-red">
-                    <div class="stat-header">
-                        <div class="stat-label">Perdidos (Rejeitados)</div>
-                        <div class="stat-icon red">❌</div>
+                <div class="cartao-stat borda-vermelha">
+                    <div class="stat-cabecalho">
+                        <div class="stat-rotulo">Perdidos (Rejeitados)</div>
+                        <div class="stat-icone vermelho">❌</div>
                     </div>
-                    <div class="stat-value red-text" id="stat-rejected-count">0</div>
+                    <div class="stat-valor texto-vermelho" id="stat-rejeitado-qtd">0</div>
                     <div class="stat-sub">Orçamentos recusados</div>
                 </div>
 
                 <!-- Cartão: Total (Azul) -->
-                <div class="stat-card border-blue">
-                    <div class="stat-header">
-                        <div class="stat-label">Total Criados</div>
-                        <div class="stat-icon blue">📊</div>
+                <div class="cartao-stat borda-azul">
+                    <div class="stat-cabecalho">
+                        <div class="stat-rotulo">Total Criados</div>
+                        <div class="stat-icone azul">📊</div>
                     </div>
-                    <div class="stat-value blue-text" id="stat-total-count">0</div>
+                    <div class="stat-valor texto-azul" id="stat-total-geral">0</div>
                     <div class="stat-sub">Histórico geral</div>
                 </div>
             </div>
 
             <div style="margin-top: 2rem;">
-                <div class="card">
+                <div class="cartao">
                     <h3>Acesso Rápido</h3>
-                    <p style="color: var(--text-muted); margin: 10px 0;">Atalhos para as funções mais usadas.</p>
+                    <p style="color: var(--texto-suave); margin: 10px 0;">Atalhos para as funções mais usadas.</p>
                     <div style="display: flex; gap: 10px;">
-                        <button class="btn btn-primary" onclick="startNewBudget()">+ Novo Orçamento</button>
-                        <button class="btn btn-secondary" onclick="navigate('history')">📂 Ver Histórico
+                        <button class="btn btn-primario" onclick="iniciarNovoOrcamento()">+ Novo Orçamento</button>
+                        <button class="btn btn-secundario" onclick="navegar('historico')">📂 Ver Histórico
                             Completo</button>
                     </div>
                 </div>
@@ -89,49 +89,50 @@
         </section>
 
         <!-- ===[ SEÇÃO: CRIAR NOVO ORÇAMENTO ]=== -->
-        <section id="create" class="section">
-            <h2 id="form-title">Novo Orçamento</h2>
-            <div class="card">
+        <section id="criar" class="secao">
+            <h2 id="titulo-formulario">Novo Orçamento</h2>
+            <div class="cartao">
                 <h3>Dados do Cliente</h3>
-                <div class="form-grid">
-                    <div class="form-group">
+                <div class="grupo-formulario-grid">
+                    <div class="grupo-input">
                         <label>Nome do Cliente *</label>
-                        <input type="text" id="client-name" placeholder="Ex: João da Silva">
+                        <input type="text" id="cliente-nome" placeholder="Ex: João da Silva">
                     </div>
-                    <div class="form-group">
+                    <div class="grupo-input">
                         <label>Telefone / WhatsApp *</label>
-                        <input type="text" id="client-phone" placeholder="(61) 9 9999-9999" maxlength="16">
+                        <input type="text" id="cliente-telefone" placeholder="(61) 9 9999-9999" maxlength="16">
                     </div>
-                    <div class="form-group">
+                    <div class="grupo-input">
                         <label>E-mail</label>
-                        <input type="email" id="client-email" placeholder="cliente@email.com">
+                        <input type="email" id="cliente-email" placeholder="cliente@email.com">
                     </div>
-                    <div class="form-group">
+                    <div class="grupo-input">
                         <label>Endereço Completo</label>
-                        <input type="text" id="client-address" placeholder="Rua, Número, Bairro...">
+                        <input type="text" id="cliente-endereco" placeholder="Rua, Número, Bairro...">
                     </div>
                 </div>
 
-                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--border);">
+                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--borda);">
 
                 <h3>Itens do Serviço</h3>
-                <div class="item-input-row">
+                <div class="linha-input-item">
                     <div style="flex: 3;">
                         <input type="text" id="item-desc" placeholder="Descrição do item *">
                         <input type="text" id="item-obs" placeholder="Observação (opcional)"
                             style="font-size: 0.9rem; margin-top: 5px;">
                     </div>
                     <div style="flex: 1;">
-                        <input type="number" id="item-qty" placeholder="Qtd" value="1">
+                        <input type="number" id="item-qtd" placeholder="Qtd" value="1">
                     </div>
                     <div style="flex: 1;">
-                        <input type="text" id="item-price" placeholder="Preço (R$)" oninput="maskMoneyInput(this)">
+                        <input type="text" id="item-preco" placeholder="Preço (R$)" oninput="mascaraMoedaInput(this)">
                     </div>
-                    <button id="btn-add-item" class="btn btn-secondary"
-                        style="height: fit-content; align-self: flex-start;" onclick="addItem()">Adicionar</button>
+                    <button id="btn-adicionar-item" class="btn btn-secundario"
+                        style="height: fit-content; align-self: flex-start;"
+                        onclick="adicionarItem()">Adicionar</button>
                 </div>
 
-                <table class="items-table">
+                <table class="tabela-itens">
                     <thead>
                         <tr>
                             <th style="width: 50%;">Descrição</th>
@@ -141,152 +142,152 @@
                             <th>Ação</th>
                         </tr>
                     </thead>
-                    <tbody id="items-list">
-                        <!-- Items will appear here -->
+                    <tbody id="lista-itens">
+                        <!-- Itens aparecem aqui -->
                     </tbody>
                 </table>
 
-                <div class="total-display" id="total-display">
+                <div class="display-total" id="display-total">
                     Total: R$ 0,00
                 </div>
 
                 <div style="margin-top: 2rem; text-align: right;">
-                    <button class="btn btn-primary" onclick="saveBudget()">Salvar Orçamento</button>
+                    <button class="btn btn-primario" onclick="salvarOrcamento()">Salvar Orçamento</button>
                 </div>
             </div>
         </section>
 
         <!-- ===[ SEÇÃO: HISTÓRICO ]=== -->
-        <section id="history" class="section">
+        <section id="historico" class="secao">
             <h2>Histórico de Orçamentos</h2>
-            <div class="card">
-                <div id="history-container">
-                    <p style="color: var(--text-muted); text-align: center;">Carregando...</p>
+            <div class="cartao">
+                <div id="container-historico">
+                    <p style="color: var(--texto-suave); text-align: center;">Carregando...</p>
                 </div>
             </div>
         </section>
 
         <!-- ===[ SEÇÃO: CONFIGURAÇÕES ]=== -->
-        <section id="settings" class="section">
+        <section id="configuracoes" class="secao">
             <h2>Configurações</h2>
-            <div class="card">
+            <div class="cartao">
 
                 <!-- Identidade Visual -->
                 <h3>Identidade Visual</h3>
-                <div class="form-group">
+                <div class="grupo-input">
                     <label>Logotipo da Empresa</label>
                     <div style="display: flex; gap: 15px; align-items: center;">
-                        <div id="logo-preview-container"
+                        <div id="container-logo"
                             style="width: 80px; height: 80px; background: #f3f4f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px dashed #ccc; overflow: hidden;">
                             <span id="logo-placeholder" style="font-size: 0.8rem; color: #999;">Sem Logo</span>
                             <img id="logo-preview" src=""
                                 style="width: 100%; height: 100%; object-fit: contain; display: none;">
                         </div>
                         <div>
-                            <button class="btn btn-secondary" onclick="selectLogo()">📸 Escolher Logotipo</button>
-                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;">Suporta alta
-                                resolução (até 3300px). Recomendado: Quadrada.</p>
+                            <button class="btn btn-secundario" onclick="selecionarLogo()">📸 Escolher Logotipo</button>
+                            <p style="font-size: 0.8rem; color: var(--texto-suave); margin-top: 5px;">Suporta alta
+                                resolução. Recomendado: Quadrada.</p>
                         </div>
                     </div>
-                    <input type="hidden" id="logo-path">
+                    <input type="hidden" id="caminho-logo">
                 </div>
 
-                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--border);">
+                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--borda);">
 
                 <h3>Dados da Empresa</h3>
-                <div class="form-grid">
-                    <div class="form-group">
+                <div class="grupo-formulario-grid">
+                    <div class="grupo-input">
                         <label>Nome Fantasia (Principal)</label>
-                        <input type="text" id="company-name" placeholder="Ex: Minha Loja Tech">
+                        <input type="text" id="empresa-nome" placeholder="Ex: Minha Loja Tech">
                     </div>
-                    <div class="form-group">
+                    <div class="grupo-input">
                         <label>Razão Social</label>
-                        <input type="text" id="company-legal-name" placeholder="Ex: Minha Loja Ltda">
+                        <input type="text" id="empresa-razao-social" placeholder="Ex: Minha Loja Ltda">
                     </div>
-                    <div class="form-group">
+                    <div class="grupo-input">
                         <label>CNPJ</label>
-                        <input type="text" id="company-cnpj" placeholder="00.000.000/0000-00" maxlength="18">
+                        <input type="text" id="empresa-cnpj" placeholder="00.000.000/0000-00" maxlength="18">
                     </div>
-                    <div class="form-group">
+                    <div class="grupo-input">
                         <label>Telefone da Empresa</label>
-                        <input type="text" id="company-phone" placeholder="(00) 0000-0000" maxlength="16">
+                        <input type="text" id="empresa-telefone" placeholder="(00) 0000-0000" maxlength="16">
                     </div>
-                    <div class="form-group" style="grid-column: span 2;">
+                    <div class="grupo-input" style="grid-column: span 2;">
                         <label>Endereço da Empresa</label>
-                        <input type="text" id="company-address" placeholder="Av. Brasil, 1000 - Centro">
+                        <input type="text" id="empresa-endereco" placeholder="Av. Brasil, 1000 - Centro">
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="grupo-input">
                     <label>Rodapé Padrão do Orçamento</label>
-                    <textarea id="footer-text" rows="2"
+                    <textarea id="texto-rodape" rows="2"
                         placeholder="Mensagem de agradecimento ou observações gerais."></textarea>
                 </div>
 
-                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--border);">
+                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--borda);">
 
                 <h3>Formas de Pagamento</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px;">Selecione quais opções
+                <p style="color: var(--texto-suave); font-size: 0.9rem; margin-bottom: 15px;">Selecione quais opções
                     aparecerão no PDF.</p>
-                <div class="checkbox-group">
-                    <label class="checkbox-label"><input type="checkbox" id="pay-pix"> PIX</label>
-                    <label class="checkbox-label"><input type="checkbox" id="pay-credit"> Cartão de Crédito</label>
-                    <label class="checkbox-label"><input type="checkbox" id="pay-debit"> Cartão de Débito</label>
-                    <label class="checkbox-label"><input type="checkbox" id="pay-cash"> Dinheiro</label>
+                <div class="grupo-checkbox">
+                    <label class="rotulo-checkbox"><input type="checkbox" id="pag-pix"> PIX</label>
+                    <label class="rotulo-checkbox"><input type="checkbox" id="pag-credito"> Cartão de Crédito</label>
+                    <label class="rotulo-checkbox"><input type="checkbox" id="pag-debito"> Cartão de Débito</label>
+                    <label class="rotulo-checkbox"><input type="checkbox" id="pag-dinheiro"> Dinheiro</label>
                 </div>
 
-                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--border);">
+                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid var(--borda);">
 
                 <h3>Exportação de PDF</h3>
 
-                <div class="form-group" style="margin-bottom: 1rem;">
-                    <div class="checkbox-wrapper">
-                        <input type="checkbox" id="pdf-auto-save" style="width: auto;">
-                        <label for="pdf-auto-save" style="margin: 0; cursor: pointer;">Salvar automaticamente após
+                <div class="grupo-input" style="margin-bottom: 1rem;">
+                    <div class="wrapper-checkbox">
+                        <input type="checkbox" id="pdf-salvar-auto" style="width: auto;">
+                        <label for="pdf-salvar-auto" style="margin: 0; cursor: pointer;">Salvar automaticamente após
                             gerar?</label>
                     </div>
-                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-left: 25px;">Se desmarcado, o arquivo
+                    <p style="font-size: 0.8rem; color: var(--texto-suave); margin-left: 25px;">Se desmarcado, o arquivo
                         abrirá apenas para visualização.</p>
                 </div>
 
-                <div class="form-group">
+                <div class="grupo-input">
                     <label>Pasta de Salvamento (se automático)</label>
                     <div style="display: flex; gap: 10px;">
-                        <input type="text" id="pdf-path" readonly placeholder="Pasta padrão do sistema"
+                        <input type="text" id="caminho-pdf" readonly placeholder="Pasta padrão do sistema"
                             style="background-color: #f9fafb; cursor: default;">
-                        <button class="btn btn-secondary" onclick="selectFolder()">📂 Selecionar Pasta</button>
+                        <button class="btn btn-secundario" onclick="selecionarPasta()">📂 Selecionar Pasta</button>
                     </div>
                 </div>
 
-                <div class="checkbox-wrapper">
-                    <input type="checkbox" id="pdf-subfolder" style="width: auto;">
-                    <label for="pdf-subfolder" style="margin: 0; cursor: pointer;">Criar pasta separada para cada
+                <div class="wrapper-checkbox">
+                    <input type="checkbox" id="pdf-subpasta" style="width: auto;">
+                    <label for="pdf-subpasta" style="margin: 0; cursor: pointer;">Criar pasta separada para cada
                         cliente?</label>
                 </div>
 
                 <div style="margin-top: 2rem;">
-                    <button class="btn btn-primary" onclick="saveSettings()">Salvar Configurações</button>
+                    <button class="btn btn-primario" onclick="salvarConfiguracoes()">Salvar Configurações</button>
                 </div>
             </div>
         </section>
 
         <!-- ===[ SEÇÃO: AJUDA ]=== -->
-        <section id="help" class="section">
+        <section id="ajuda" class="secao">
             <h2>Central de Ajuda</h2>
-            <div class="help-grid">
-                <div class="card help-card">
-                    <div class="icon">🖼️</div>
+            <div class="grade-ajuda">
+                <div class="cartao cartao-ajuda">
+                    <div class="icone">🖼️</div>
                     <h3>Logotipo</h3>
                     <p>Adicione a marca da sua empresa. O sistema aceita imagens e as redimensiona automaticamente para
                         caber no PDF.</p>
                 </div>
-                <div class="card help-card">
-                    <div class="icon">💳</div>
+                <div class="cartao cartao-ajuda">
+                    <div class="icone">💳</div>
                     <h3>Pagamentos</h3>
                     <p>Configure quais formas de pagamento você aceita (Pix, Cartão, Dinheiro) na aba Configurações.</p>
                 </div>
-                <div class="card help-card">
-                    <div class="icon">💾</div>
+                <div class="cartao cartao-ajuda">
+                    <div class="icone">💾</div>
                     <h3>Salvamento</h3>
                     <p>Você pode optar por salvar automaticamente os PDFs em uma pasta ou apenas visualizá-los
                         temporariamente.</p>

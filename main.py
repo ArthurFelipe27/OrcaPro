@@ -16,167 +16,163 @@ except ImportError:
     print("ERRO CRÍTICO: A biblioteca 'Pillow' é necessária. Instale com: pip install Pillow")
     sys.exit(1)
 
-# ===[ CONFIGURAÇÃO E UTILITÁRIOS DE BANCO DE DADOS ]===
+# ===[ CONFIGURAÇÕES E CONSTANTES ]===
 
-def get_app_path():
-    """Retorna o caminho da aplicação."""
+def obter_caminho_app():
+    """Retorna o caminho absoluto da aplicação (compatível com PyInstaller)."""
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
 
-DB_FILE = os.path.join(get_app_path(), 'orcamentos.db')
-LOGO_FILE = os.path.join(get_app_path(), 'company_logo.png')
+ARQUIVO_DB = os.path.join(obter_caminho_app(), 'orcamentos.db')
+ARQUIVO_LOGO = os.path.join(obter_caminho_app(), 'logo_empresa.png')
 
-def init_db():
-    """Inicializa as tabelas e roda migrações necessárias."""
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
+# ===[ GERENCIAMENTO DE BANCO DE DADOS ]===
+
+def inicializar_banco():
+    """Cria tabelas e executa migrações se necessário."""
+    conexao = sqlite3.connect(ARQUIVO_DB)
+    cursor = conexao.cursor()
     
-    # Tabela orçamentos
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS budgets (
+    # Tabela de Orçamentos
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS orcamentos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            client TEXT,
-            client_email TEXT,
-            client_phone TEXT,
-            client_address TEXT,
-            items TEXT,
+            cliente TEXT,
+            cliente_email TEXT,
+            cliente_telefone TEXT,
+            cliente_endereco TEXT,
+            itens TEXT,
             total REAL,
-            date_created TEXT,
-            status TEXT DEFAULT 'PENDING'
+            data_criacao TEXT,
+            status TEXT DEFAULT 'PENDENTE'
         )
     ''')
 
-    # Tabela configurações
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS settings (
+    # Tabela de Configurações
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS configuracoes (
             id INTEGER PRIMARY KEY,
-            company_name TEXT,
-            company_legal_name TEXT,
-            company_cnpj TEXT,
-            company_address TEXT,
-            company_phone TEXT,
-            footer_text TEXT,
-            pdf_save_path TEXT,
-            pdf_create_subfolder INTEGER,
-            pdf_auto_save INTEGER DEFAULT 1,
-            logo_path TEXT,
-            payment_pix INTEGER DEFAULT 0,
-            payment_credit INTEGER DEFAULT 0,
-            payment_debit INTEGER DEFAULT 0,
-            payment_cash INTEGER DEFAULT 0
+            nome_empresa TEXT,
+            razao_social TEXT,
+            cnpj TEXT,
+            endereco TEXT,
+            telefone TEXT,
+            texto_rodape TEXT,
+            caminho_salvar_pdf TEXT,
+            criar_subpasta INTEGER,
+            salvar_auto INTEGER DEFAULT 1,
+            caminho_logo TEXT,
+            pagamento_pix INTEGER DEFAULT 0,
+            pagamento_credito INTEGER DEFAULT 0,
+            pagamento_debito INTEGER DEFAULT 0,
+            pagamento_dinheiro INTEGER DEFAULT 0
         )
     ''')
     
-    # Migrações (Adiciona colunas novas automaticamente se não existirem)
-    migrations = [
-        ('settings', 'pdf_save_path', 'TEXT'),
-        ('settings', 'pdf_create_subfolder', 'INTEGER'),
-        ('settings', 'company_legal_name', 'TEXT'),
-        ('settings', 'company_cnpj', 'TEXT'),
-        ('settings', 'company_address', 'TEXT'),
-        ('settings', 'company_phone', 'TEXT'),
-        ('settings', 'pdf_auto_save', 'INTEGER DEFAULT 1'),
-        ('settings', 'logo_path', 'TEXT'),
-        ('settings', 'payment_pix', 'INTEGER DEFAULT 0'),
-        ('settings', 'payment_credit', 'INTEGER DEFAULT 0'),
-        ('settings', 'payment_debit', 'INTEGER DEFAULT 0'),
-        ('settings', 'payment_cash', 'INTEGER DEFAULT 0'),
-        ('budgets', 'client_email', 'TEXT'),
-        ('budgets', 'client_phone', 'TEXT'),
-        ('budgets', 'client_address', 'TEXT'),
-        ('budgets', 'status', 'TEXT')
+    # Migrações para garantir compatibilidade com versões anteriores
+    migracoes = [
+        ('configuracoes', 'caminho_salvar_pdf', 'TEXT'),
+        ('configuracoes', 'criar_subpasta', 'INTEGER'),
+        ('configuracoes', 'razao_social', 'TEXT'),
+        ('configuracoes', 'cnpj', 'TEXT'),
+        ('configuracoes', 'endereco', 'TEXT'),
+        ('configuracoes', 'telefone', 'TEXT'),
+        ('configuracoes', 'salvar_auto', 'INTEGER DEFAULT 1'),
+        ('configuracoes', 'caminho_logo', 'TEXT'),
+        ('configuracoes', 'pagamento_pix', 'INTEGER DEFAULT 0'),
+        ('configuracoes', 'pagamento_credito', 'INTEGER DEFAULT 0'),
+        ('configuracoes', 'pagamento_debito', 'INTEGER DEFAULT 0'),
+        ('configuracoes', 'pagamento_dinheiro', 'INTEGER DEFAULT 0'),
+        ('orcamentos', 'cliente_email', 'TEXT'),
+        ('orcamentos', 'cliente_telefone', 'TEXT'),
+        ('orcamentos', 'cliente_endereco', 'TEXT'),
+        ('orcamentos', 'status', 'TEXT')
     ]
 
-    for table, col, dtype in migrations:
+    for tabela, coluna, tipo in migracoes:
         try:
-            # Extrai apenas o nome da coluna para verificação
-            col_name = col.split(' ')[0]
-            c.execute(f'ALTER TABLE {table} ADD COLUMN {col_name} {dtype.replace("DEFAULT", "")}')
-            # Se houver valor default, atualiza os existentes
-            if 'DEFAULT' in dtype:
-                default_val = dtype.split('DEFAULT')[1].strip()
-                c.execute(f"UPDATE {table} SET {col_name} = {default_val} WHERE {col_name} IS NULL")
+            col_nome = coluna.split(' ')[0]
+            cursor.execute(f'ALTER TABLE {tabela} ADD COLUMN {col_nome} {tipo.replace("DEFAULT", "")}')
+            if 'DEFAULT' in tipo:
+                valor_padrao = tipo.split('DEFAULT')[1].strip()
+                cursor.execute(f"UPDATE {tabela} SET {col_nome} = {valor_padrao} WHERE {col_nome} IS NULL")
         except sqlite3.OperationalError:
-            pass
+            pass # Coluna já existe
     
-    conn.commit()
-    conn.close()
+    conexao.commit()
+    conexao.close()
 
-# ===[ UTILITÁRIOS DO SISTEMA ]===
+# ===[ FUNÇÕES AUXILIARES ]===
 
-def format_currency(value):
-    """Formata float para moeda BRL (R$ 1.234,56)."""
-    return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+def formatar_moeda(valor):
+    """Formata float para BRL (R$ 1.234,56)."""
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-def open_file(filepath):
-    """Abre o arquivo gerado com o visualizador padrão do sistema."""
+def abrir_arquivo_externo(caminho):
+    """Abre o arquivo com o programa padrão do sistema operacional."""
     if platform.system() == 'Darwin':       # macOS
-        subprocess.call(('open', filepath))
+        subprocess.call(('open', caminho))
     elif platform.system() == 'Windows':    # Windows
-        os.startfile(filepath)
-    else:                                   # linux
-        subprocess.call(('xdg-open', filepath))
+        os.startfile(caminho)
+    else:                                   # Linux
+        subprocess.call(('xdg-open', caminho))
 
-def sanitize_filename(name):
-    """Remove caracteres ilegais para nomes de arquivo."""
-    return re.sub(r'[<>:"/\\|?*]', '', name).strip()
+def sanitizar_nome_arquivo(nome):
+    """Remove caracteres inválidos para nomes de arquivo."""
+    return re.sub(r'[<>:"/\\|?*]', '', nome).strip()
 
-# ===[ CLASSE DE GERAÇÃO DE PDF ]===
+# ===[ GERAÇÃO DE PDF ]===
 
-class ModernPDF(FPDF):
-    def __init__(self, company_data, budget, date_str, payment_methods):
+class RelatorioPDF(FPDF):
+    def __init__(self, dados_empresa, orcamento, data_formatada, metodos_pagamento):
         super().__init__()
-        self.company = company_data
-        self.budget = budget
-        self.date_str = date_str
-        self.payment_methods = payment_methods
+        self.empresa = dados_empresa
+        self.orcamento = orcamento
+        self.data_str = data_formatada
+        self.pagamentos = metodos_pagamento
         self.set_auto_page_break(auto=True, margin=20)
         self.set_margins(15, 15, 15)
 
     def header(self):
-        # 1. Barra Superior
+        # Sobrescrita do método header do FPDF
         self.set_fill_color(55, 65, 81)
         self.rect(0, 0, 210, 5, 'F')
         self.ln(10)
         
-        # 2. Logo (Se existir)
-        has_logo = False
-        if self.company.get('logo_path') and os.path.exists(self.company.get('logo_path')):
+        possui_logo = False
+        if self.empresa.get('caminho_logo') and os.path.exists(self.empresa.get('caminho_logo')):
             try:
-                # Posiciona logo à esquerda
-                self.image(self.company.get('logo_path'), 15, 12, w=30)
-                has_logo = True
+                self.image(self.empresa.get('caminho_logo'), 15, 12, w=30)
+                possui_logo = True
             except:
-                pass # Ignora erro de logo se arquivo corrompido
+                pass
 
-        # Ajusta posição X dependendo se tem logo ou não
-        text_x = 50 if has_logo else 15
+        pos_texto_x = 50 if possui_logo else 15
         
-        # 3. Dados da Empresa (Lado Esquerdo)
-        self.set_xy(text_x, 15)
+        # Dados da Empresa
+        self.set_xy(pos_texto_x, 15)
         self.set_text_color(0, 0, 0)
         self.set_font('Helvetica', 'B', 14)
-        self.cell(100, 7, self.company.get('name', 'Minha Empresa'), 0, 1, 'L')
+        self.cell(100, 7, self.empresa.get('nome', 'Minha Empresa'), 0, 1, 'L')
         
         self.set_font('Helvetica', '', 9)
         self.set_text_color(80, 80, 80)
         
-        current_y = self.get_y()
-        self.set_x(text_x)
-        if self.company.get('legal_name'):
-            self.cell(100, 5, self.company['legal_name'], 0, 1, 'L')
-            self.set_x(text_x)
-        if self.company.get('cnpj'):
-            self.cell(100, 5, f"CNPJ: {self.company['cnpj']}", 0, 1, 'L')
-            self.set_x(text_x)
-        if self.company.get('address'):
-            self.cell(100, 5, self.company['address'], 0, 1, 'L')
-            self.set_x(text_x)
-        if self.company.get('phone'):
-            self.cell(100, 5, f"Tel: {self.company['phone']}", 0, 1, 'L')
+        if self.empresa.get('razao_social'):
+            self.set_x(pos_texto_x)
+            self.cell(100, 5, self.empresa['razao_social'], 0, 1, 'L')
+        if self.empresa.get('cnpj'):
+            self.set_x(pos_texto_x)
+            self.cell(100, 5, f"CNPJ: {self.empresa['cnpj']}", 0, 1, 'L')
+        if self.empresa.get('endereco'):
+            self.set_x(pos_texto_x)
+            self.cell(100, 5, self.empresa['endereco'], 0, 1, 'L')
+        if self.empresa.get('telefone'):
+            self.set_x(pos_texto_x)
+            self.cell(100, 5, f"Tel: {self.empresa['telefone']}", 0, 1, 'L')
 
-        # 4. Título e Info do Orçamento (Lado Direito)
+        # Título do Documento
         self.set_y(15)
         self.set_font('Helvetica', 'B', 24)
         self.set_text_color(200, 200, 200)
@@ -188,19 +184,18 @@ class ModernPDF(FPDF):
         self.set_text_color(0, 0, 0)
         self.cell(40, 6, "Número:", 0, 0, 'R')
         self.set_font('Helvetica', '', 10)
-        self.cell(45, 6, f"#{self.budget['id']:04d}", 0, 1, 'R')
+        self.cell(45, 6, f"#{self.orcamento['id']:04d}", 0, 1, 'R')
         
         self.set_xy(110, y_pos + 6)
         self.set_font('Helvetica', 'B', 10)
         self.cell(40, 6, "Data:", 0, 0, 'R')
         self.set_font('Helvetica', '', 10)
-        self.cell(45, 6, self.date_str, 0, 1, 'R')
+        self.cell(45, 6, self.data_str, 0, 1, 'R')
 
-        # Garante espaço após o cabeçalho
         self.set_y(max(self.get_y(), 50)) 
         self.ln(5)
         
-        # 5. Cliente
+        # Dados do Cliente
         self.set_draw_color(200, 200, 200)
         self.line(15, self.get_y(), 195, self.get_y())
         self.ln(5)
@@ -211,315 +206,322 @@ class ModernPDF(FPDF):
         
         self.set_font('Helvetica', 'B', 12)
         self.set_text_color(0, 0, 0)
-        self.cell(0, 7, self.budget['client'], 0, 1, 'L')
+        self.cell(0, 7, self.orcamento['cliente'], 0, 1, 'L')
         
         self.set_font('Helvetica', '', 10)
         self.set_text_color(80, 80, 80)
         
-        client_details = []
-        if self.budget['client_email']: client_details.append(self.budget['client_email'])
-        if self.budget['client_phone']: client_details.append(self.budget['client_phone'])
+        detalhes_cliente = []
+        if self.orcamento['email']: detalhes_cliente.append(self.orcamento['email'])
+        if self.orcamento['telefone']: detalhes_cliente.append(self.orcamento['telefone'])
         
-        if client_details:
-            self.cell(0, 5, " | ".join(client_details), 0, 1, 'L')
+        if detalhes_cliente:
+            self.cell(0, 5, " | ".join(detalhes_cliente), 0, 1, 'L')
             
-        if self.budget['client_address']:
-            self.cell(0, 5, self.budget['client_address'], 0, 1, 'L')
+        if self.orcamento['endereco']:
+            self.cell(0, 5, self.orcamento['endereco'], 0, 1, 'L')
             
         self.ln(10)
 
     def footer(self):
+        # Sobrescrita do método footer do FPDF
         self.set_y(-25)
         
-        # Formas de Pagamento
-        if self.payment_methods:
+        if self.pagamentos:
             self.set_font('Helvetica', 'B', 8)
             self.set_text_color(50, 50, 50)
             self.cell(0, 4, "Formas de Pagamento Aceitas:", 0, 1, 'C')
             self.set_font('Helvetica', '', 8)
             
-            methods_text = []
-            if self.payment_methods.get('pix'): methods_text.append("PIX")
-            if self.payment_methods.get('credit'): methods_text.append("Cartão de Crédito")
-            if self.payment_methods.get('debit'): methods_text.append("Cartão de Débito")
-            if self.payment_methods.get('cash'): methods_text.append("Dinheiro")
+            texto_metodos = []
+            if self.pagamentos.get('pix'): texto_metodos.append("PIX")
+            if self.pagamentos.get('credito'): texto_metodos.append("Cartão de Crédito")
+            if self.pagamentos.get('debito'): texto_metodos.append("Cartão de Débito")
+            if self.pagamentos.get('dinheiro'): texto_metodos.append("Dinheiro")
             
-            final_text = ", ".join(methods_text) + "."
-            self.cell(0, 4, final_text, 0, 1, 'C')
+            texto_final = ", ".join(texto_metodos) + "."
+            self.cell(0, 4, texto_final, 0, 1, 'C')
 
         self.set_font('Helvetica', 'I', 8)
         self.set_text_color(150, 150, 150)
         self.cell(0, 10, f'Página {self.page_no()}/{{nb}}', 0, 0, 'C')
 
-# ===[ API (BACKEND <-> FRONTEND) ]===
+# ===[ API DO SISTEMA (PONTE JS <-> PYTHON) ]===
 
-class Api:
+class InterfaceSistema:
     def __init__(self):
-        self.window = None
+        self.janela = None
 
-    def select_folder(self):
-        if self.window:
-            result = self.window.create_file_dialog(webview.FOLDER_DIALOG)
-            if result and len(result) > 0:
-                return result[0]
+    def selecionar_pasta(self):
+        if self.janela:
+            resultado = self.janela.create_file_dialog(webview.FOLDER_DIALOG)
+            if resultado and len(resultado) > 0:
+                return resultado[0]
         return None
 
-    def select_logo(self):
-        """Abre diálogo para selecionar imagem, redimensiona e salva."""
-        if self.window:
-            file_types = ('Image Files (*.png;*.jpg;*.jpeg)', 'All files (*.*)')
-            result = self.window.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types)
+    def selecionar_logo(self):
+        """Abre diálogo, processa e salva a logo em formato quadrado."""
+        if self.janela:
+            tipos_arquivo = ('Imagens (*.png;*.jpg;*.jpeg)', 'Todos os arquivos (*.*)')
+            resultado = self.janela.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False, file_types=tipos_arquivo)
             
-            if result and len(result) > 0:
-                original_path = result[0]
+            if resultado and len(resultado) > 0:
+                caminho_origem = resultado[0]
                 try:
-                    # Carrega imagem e converte para RGBA (suporte a transparência)
-                    img = Image.open(original_path).convert("RGBA")
+                    img = Image.open(caminho_origem).convert("RGBA")
                     
-                    # Define limite maior (ex: 3300px) para suportar 4k/resoluções altas
-                    max_dim = 3300
-                    if img.width > max_dim or img.height > max_dim:
-                        # Usa LANCZOS para melhor qualidade no redimensionamento
-                        img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+                    dimensao_max = 3300
+                    if img.width > dimensao_max or img.height > dimensao_max:
+                        img.thumbnail((dimensao_max, dimensao_max), Image.Resampling.LANCZOS)
                     
-                    # Cria canvas quadrado para garantir proporção 1:1 (Lados iguais)
-                    size = max(img.width, img.height)
-                    new_img = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+                    tamanho = max(img.width, img.height)
+                    nova_img = Image.new("RGBA", (tamanho, tamanho), (255, 255, 255, 0))
                     
-                    # Centraliza a imagem no canvas quadrado
-                    left = (size - img.width) // 2
-                    top = (size - img.height) // 2
-                    new_img.paste(img, (left, top), img) # Usa a própria imagem como máscara se tiver transparência
+                    esquerda = (tamanho - img.width) // 2
+                    topo = (tamanho - img.height) // 2
+                    nova_img.paste(img, (esquerda, topo), img)
                     
-                    new_img.save(LOGO_FILE, "PNG")
-                    return {'status': 'ok', 'path': LOGO_FILE}
+                    nova_img.save(ARQUIVO_LOGO, "PNG")
+                    return {'status': 'ok', 'caminho': ARQUIVO_LOGO}
                 except Exception as e:
-                    return {'status': 'error', 'message': f"Erro ao processar imagem: {str(e)}"}
-        return {'status': 'cancelled'}
+                    return {'status': 'erro', 'mensagem': f"Erro ao processar imagem: {str(e)}"}
+        return {'status': 'cancelado'}
 
-    def update_status(self, budget_id, status):
+    def atualizar_status(self, id_orcamento, novo_status):
         try:
-            conn = sqlite3.connect(DB_FILE)
-            c = conn.cursor()
-            c.execute('UPDATE budgets SET status = ? WHERE id = ?', (status, budget_id))
-            conn.commit()
-            conn.close()
+            conexao = sqlite3.connect(ARQUIVO_DB)
+            cursor = conexao.cursor()
+            cursor.execute('UPDATE orcamentos SET status = ? WHERE id = ?', (novo_status, id_orcamento))
+            conexao.commit()
+            conexao.close()
             return {'status': 'ok'}
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {'status': 'erro', 'mensagem': str(e)}
 
-    def delete_budget(self, budget_id):
+    def excluir_orcamento(self, id_orcamento):
         try:
-            conn = sqlite3.connect(DB_FILE)
-            c = conn.cursor()
-            c.execute('DELETE FROM budgets WHERE id = ?', (budget_id,))
-            conn.commit()
-            conn.close()
+            conexao = sqlite3.connect(ARQUIVO_DB)
+            cursor = conexao.cursor()
+            cursor.execute('DELETE FROM orcamentos WHERE id = ?', (id_orcamento,))
+            conexao.commit()
+            conexao.close()
             return {'status': 'ok'}
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {'status': 'erro', 'mensagem': str(e)}
 
-    def save_budget(self, data):
+    def salvar_orcamento(self, dados):
         try:
-            conn = sqlite3.connect(DB_FILE)
-            c = conn.cursor()
-            items_json = json.dumps(data['items'])
+            conexao = sqlite3.connect(ARQUIVO_DB)
+            cursor = conexao.cursor()
+            itens_json = json.dumps(dados['itens'])
             
-            if 'id' in data and data['id']:
-                c.execute('''
-                    UPDATE budgets 
-                    SET client=?, client_email=?, client_phone=?, client_address=?, items=?, total=?, date_created=?
+            if 'id' in dados and dados['id']:
+                cursor.execute('''
+                    UPDATE orcamentos 
+                    SET cliente=?, cliente_email=?, cliente_telefone=?, cliente_endereco=?, itens=?, total=?, data_criacao=?
                     WHERE id=?
-                ''', (data['client'], data.get('email', ''), data.get('phone', ''), data.get('address', ''), items_json, data['total'], data['date'], data['id']))
+                ''', (dados['cliente'], dados.get('email', ''), dados.get('telefone', ''), dados.get('endereco', ''), itens_json, dados['total'], dados['data'], dados['id']))
             else:
-                c.execute('''
-                    INSERT INTO budgets 
-                    (client, client_email, client_phone, client_address, items, total, date_created, status) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')
-                ''', (data['client'], data.get('email', ''), data.get('phone', ''), data.get('address', ''), items_json, data['total'], data['date']))
+                cursor.execute('''
+                    INSERT INTO orcamentos 
+                    (cliente, cliente_email, cliente_telefone, cliente_endereco, itens, total, data_criacao, status) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDENTE')
+                ''', (dados['cliente'], dados.get('email', ''), dados.get('telefone', ''), dados.get('endereco', ''), itens_json, dados['total'], dados['data']))
                 
-            conn.commit()
-            conn.close()
+            conexao.commit()
+            conexao.close()
             return {'status': 'ok'}
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {'status': 'erro', 'mensagem': str(e)}
 
-    def get_budget_details(self, budget_id):
-        conn = sqlite3.connect(DB_FILE)
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        c.execute('SELECT * FROM budgets WHERE id = ?', (budget_id,))
-        row = c.fetchone()
-        conn.close()
+    def obter_detalhes_orcamento(self, id_orcamento):
+        conexao = sqlite3.connect(ARQUIVO_DB)
+        conexao.row_factory = sqlite3.Row
+        cursor = conexao.cursor()
+        cursor.execute('SELECT * FROM orcamentos WHERE id = ?', (id_orcamento,))
+        linha = cursor.fetchone()
+        conexao.close()
         
-        if row:
+        if linha:
             return {
-                'id': row['id'],
-                'client': row['client'],
-                'email': row['client_email'],
-                'phone': row['client_phone'],
-                'address': row['client_address'],
-                'items': json.loads(row['items']),
-                'total': row['total']
+                'id': linha['id'],
+                'cliente': linha['cliente'],
+                'email': linha['cliente_email'],
+                'telefone': linha['cliente_telefone'],
+                'endereco': linha['cliente_endereco'],
+                'itens': json.loads(linha['itens']),
+                'total': linha['total']
             }
         return None
 
-    def get_history(self):
-        conn = sqlite3.connect(DB_FILE)
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        c.execute('SELECT * FROM budgets')
-        rows = c.fetchall()
-        results = []
-        for row in rows:
-            items = json.loads(row['items'])
-            status = row['status'] if 'status' in row.keys() and row['status'] else 'PENDING'
+    def obter_historico(self):
+        conexao = sqlite3.connect(ARQUIVO_DB)
+        conexao.row_factory = sqlite3.Row
+        cursor = conexao.cursor()
+        cursor.execute('SELECT * FROM orcamentos')
+        linhas = cursor.fetchall()
+        resultados = []
+        for linha in linhas:
+            itens = json.loads(linha['itens'])
+            status = linha['status'] if 'status' in linha.keys() and linha['status'] else 'PENDENTE'
             
-            results.append({
-                'id': row['id'],
-                'client': row['client'],
-                'total': row['total'],
-                'date': row['date_created'],
-                'items_count': len(items),
+            resultados.append({
+                'id': linha['id'],
+                'cliente': linha['cliente'],
+                'total': linha['total'],
+                'data': linha['data_criacao'],
+                'qtd_itens': len(itens),
                 'status': status
             })
-        conn.close()
-        return results
+        conexao.close()
+        return resultados
 
-    def get_stats(self):
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute('SELECT COUNT(*) FROM budgets')
-        total_count = c.fetchone()[0]
-        c.execute("SELECT COUNT(*), SUM(total) FROM budgets WHERE status = 'APPROVED'")
-        row_approved = c.fetchone()
-        approved_count = row_approved[0] or 0
-        approved_value = row_approved[1] or 0.0
-        c.execute("SELECT COUNT(*), SUM(total) FROM budgets WHERE status = 'PENDING' OR status IS NULL")
-        row_pending = c.fetchone()
-        pending_count = row_pending[0] or 0
-        pending_value = row_pending[1] or 0.0
-        c.execute("SELECT COUNT(*) FROM budgets WHERE status = 'REJECTED'")
-        rejected_count = c.fetchone()[0] or 0
-        conn.close()
+    def obter_estatisticas(self):
+        conexao = sqlite3.connect(ARQUIVO_DB)
+        cursor = conexao.cursor()
+        
+        cursor.execute('SELECT COUNT(*) FROM orcamentos')
+        total_geral = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*), SUM(total) FROM orcamentos WHERE status = 'APROVADO'")
+        linha_aprovados = cursor.fetchone()
+        aprovados_qtd = linha_aprovados[0] or 0
+        aprovados_valor = linha_aprovados[1] or 0.0
+        
+        cursor.execute("SELECT COUNT(*), SUM(total) FROM orcamentos WHERE status = 'PENDENTE' OR status IS NULL")
+        linha_pendentes = cursor.fetchone()
+        pendentes_qtd = linha_pendentes[0] or 0
+        pendentes_valor = linha_pendentes[1] or 0.0
+        
+        cursor.execute("SELECT COUNT(*) FROM orcamentos WHERE status = 'REJEITADO'")
+        rejeitados_qtd = cursor.fetchone()[0] or 0
+        
+        conexao.close()
         return {
-            'total_count': total_count,
-            'approved_count': approved_count,
-            'approved_value': approved_value,
-            'pending_count': pending_count,
-            'pending_value': pending_value,
-            'rejected_count': rejected_count
+            'total_geral': total_geral,
+            'aprovados_qtd': aprovados_qtd,
+            'aprovados_valor': aprovados_valor,
+            'pendentes_qtd': pendentes_qtd,
+            'pendentes_valor': pendentes_valor,
+            'rejeitados_qtd': rejeitados_qtd
         }
 
-    def save_settings(self, data):
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute('SELECT id FROM settings WHERE id=1')
-        exists = c.fetchone()
+    def salvar_configuracoes(self, dados):
+        conexao = sqlite3.connect(ARQUIVO_DB)
+        cursor = conexao.cursor()
+        cursor.execute('SELECT id FROM configuracoes WHERE id=1')
+        existe = cursor.fetchone()
         
-        # Converter booleanos para int
-        subfolder = 1 if data.get('create_subfolder') else 0
-        auto_save = 1 if data.get('auto_save') else 0
-        pay_pix = 1 if data.get('payment_pix') else 0
-        pay_credit = 1 if data.get('payment_credit') else 0
-        pay_debit = 1 if data.get('payment_debit') else 0
-        pay_cash = 1 if data.get('payment_cash') else 0
+        # Converte booleanos para inteiros (0 ou 1)
+        subpasta = 1 if dados.get('criar_subpasta') else 0
+        salvar_auto = 1 if dados.get('salvar_auto') else 0
+        pg_pix = 1 if dados.get('pagamento_pix') else 0
+        pg_credito = 1 if dados.get('pagamento_credito') else 0
+        pg_debito = 1 if dados.get('pagamento_debito') else 0
+        pg_dinheiro = 1 if dados.get('pagamento_dinheiro') else 0
         
-        logo_path = data.get('logo_path', '')
+        caminho_logo = dados.get('caminho_logo', '')
         
-        cols = """company_name=?, company_legal_name=?, company_cnpj=?, company_address=?, 
-                  company_phone=?, footer_text=?, pdf_save_path=?, pdf_create_subfolder=?,
-                  pdf_auto_save=?, logo_path=?, payment_pix=?, payment_credit=?, payment_debit=?, payment_cash=?"""
+        colunas = """nome_empresa=?, razao_social=?, cnpj=?, endereco=?, 
+                  telefone=?, texto_rodape=?, caminho_salvar_pdf=?, criar_subpasta=?,
+                  salvar_auto=?, caminho_logo=?, pagamento_pix=?, pagamento_credito=?, 
+                  pagamento_debito=?, pagamento_dinheiro=?"""
         
-        params = (data['company'], data.get('legal_name', ''), data.get('cnpj', ''), data.get('address', ''), 
-                  data.get('phone', ''), data['footer'], data.get('pdf_path', ''), subfolder,
-                  auto_save, logo_path, pay_pix, pay_credit, pay_debit, pay_cash)
+        parametros = (
+            dados['empresa'], dados.get('razao_social', ''), dados.get('cnpj', ''), dados.get('endereco', ''), 
+            dados.get('telefone', ''), dados['rodape'], dados.get('caminho_pdf', ''), subpasta,
+            salvar_auto, caminho_logo, pg_pix, pg_credito, pg_debito, pg_dinheiro
+        )
 
-        if exists:
-            c.execute(f'UPDATE settings SET {cols} WHERE id=1', params)
+        if existe:
+            cursor.execute(f'UPDATE configuracoes SET {colunas} WHERE id=1', parametros)
         else:
-            c.execute(f'INSERT INTO settings (company_name, company_legal_name, company_cnpj, company_address, company_phone, footer_text, pdf_save_path, pdf_create_subfolder, pdf_auto_save, logo_path, payment_pix, payment_credit, payment_debit, payment_cash, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)', params)
-        conn.commit()
-        conn.close()
+            cursor.execute(f'INSERT INTO configuracoes (nome_empresa, razao_social, cnpj, endereco, telefone, texto_rodape, caminho_salvar_pdf, criar_subpasta, salvar_auto, caminho_logo, pagamento_pix, pagamento_credito, pagamento_debito, pagamento_dinheiro, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)', parametros)
+        conexao.commit()
+        conexao.close()
         return {'status': 'ok'}
 
-    def get_settings(self):
-        conn = sqlite3.connect(DB_FILE)
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        c.execute('SELECT * FROM settings WHERE id=1')
-        row = c.fetchone()
-        conn.close()
-        if row:
-            def get_val(key, default=''): return row[key] if key in row.keys() and row[key] else default
+    def obter_configuracoes(self):
+        conexao = sqlite3.connect(ARQUIVO_DB)
+        conexao.row_factory = sqlite3.Row
+        cursor = conexao.cursor()
+        cursor.execute('SELECT * FROM configuracoes WHERE id=1')
+        linha = cursor.fetchone()
+        conexao.close()
+        
+        if linha:
+            # Função auxiliar para extrair valor com fallback seguro
+            def get_val(chave, padrao=''): 
+                return linha[chave] if chave in linha.keys() and linha[chave] else padrao
+            
             return {
-                'company': get_val('company_name'),
-                'legal_name': get_val('company_legal_name'),
-                'cnpj': get_val('company_cnpj'),
-                'address': get_val('company_address'),
-                'phone': get_val('company_phone'),
-                'footer': get_val('footer_text'),
-                'pdf_path': get_val('pdf_save_path'),
-                'create_subfolder': bool(row['pdf_create_subfolder']) if 'pdf_create_subfolder' in row.keys() else False,
-                'auto_save': bool(row['pdf_auto_save']) if 'pdf_auto_save' in row.keys() else True,
-                'logo_path': get_val('logo_path'),
-                'payment_pix': bool(row['payment_pix']) if 'payment_pix' in row.keys() else False,
-                'payment_credit': bool(row['payment_credit']) if 'payment_credit' in row.keys() else False,
-                'payment_debit': bool(row['payment_debit']) if 'payment_debit' in row.keys() else False,
-                'payment_cash': bool(row['payment_cash']) if 'payment_cash' in row.keys() else False,
+                'empresa': get_val('nome_empresa'),
+                'razao_social': get_val('razao_social'),
+                'cnpj': get_val('cnpj'),
+                'endereco': get_val('endereco'),
+                'telefone': get_val('telefone'),
+                'rodape': get_val('texto_rodape'),
+                'caminho_pdf': get_val('caminho_salvar_pdf'),
+                'criar_subpasta': bool(linha['criar_subpasta']) if 'criar_subpasta' in linha.keys() else False,
+                'salvar_auto': bool(linha['salvar_auto']) if 'salvar_auto' in linha.keys() else True,
+                'caminho_logo': get_val('caminho_logo'),
+                'pagamento_pix': bool(linha['pagamento_pix']) if 'pagamento_pix' in linha.keys() else False,
+                'pagamento_credito': bool(linha['pagamento_credito']) if 'pagamento_credito' in linha.keys() else False,
+                'pagamento_debito': bool(linha['pagamento_debito']) if 'pagamento_debito' in linha.keys() else False,
+                'pagamento_dinheiro': bool(linha['pagamento_dinheiro']) if 'pagamento_dinheiro' in linha.keys() else False,
             }
         return {}
 
-    def generate_pdf(self, budget_id):
+    def gerar_pdf(self, id_orcamento):
         try:
-            conn = sqlite3.connect(DB_FILE)
-            conn.row_factory = sqlite3.Row
-            c = conn.cursor()
-            c.execute('SELECT * FROM budgets WHERE id = ?', (budget_id,))
-            budget = c.fetchone()
-            c.execute('SELECT * FROM settings WHERE id = 1')
-            settings_row = c.fetchone()
-            conn.close()
-
-            if not budget: return {'status': 'error', 'message': 'Orçamento não encontrado'}
-
-            settings = {k: settings_row[k] for k in settings_row.keys()} if settings_row else {}
+            conexao = sqlite3.connect(ARQUIVO_DB)
+            conexao.row_factory = sqlite3.Row
+            cursor = conexao.cursor()
             
-            # Dados da Empresa e Configs
-            company_data = {
-                'name': settings.get('company_name', 'Minha Empresa'),
-                'legal_name': settings.get('company_legal_name', ''),
-                'cnpj': settings.get('company_cnpj', ''),
-                'address': settings.get('company_address', ''),
-                'phone': settings.get('company_phone', ''),
-                'logo_path': settings.get('logo_path', '')
+            cursor.execute('SELECT * FROM orcamentos WHERE id = ?', (id_orcamento,))
+            orcamento = cursor.fetchone()
+            
+            cursor.execute('SELECT * FROM configuracoes WHERE id = 1')
+            config_linha = cursor.fetchone()
+            conexao.close()
+
+            if not orcamento: return {'status': 'erro', 'mensagem': 'Orçamento não encontrado'}
+
+            config = {k: config_linha[k] for k in config_linha.keys()} if config_linha else {}
+            
+            dados_empresa = {
+                'nome': config.get('nome_empresa', 'Minha Empresa'),
+                'razao_social': config.get('razao_social', ''),
+                'cnpj': config.get('cnpj', ''),
+                'endereco': config.get('endereco', ''),
+                'telefone': config.get('telefone', ''),
+                'caminho_logo': config.get('caminho_logo', '')
             }
 
-            payment_methods = {
-                'pix': bool(settings.get('payment_pix', 0)),
-                'credit': bool(settings.get('payment_credit', 0)),
-                'debit': bool(settings.get('payment_debit', 0)),
-                'cash': bool(settings.get('payment_cash', 0))
+            metodos_pagamento = {
+                'pix': bool(config.get('pagamento_pix', 0)),
+                'credito': bool(config.get('pagamento_credito', 0)),
+                'debito': bool(config.get('pagamento_debito', 0)),
+                'dinheiro': bool(config.get('pagamento_dinheiro', 0))
             }
             
-            # Lógica de Salvamento (Auto-Save ou Temp)
-            is_auto_save = bool(settings.get('pdf_auto_save', 1))
-            user_save_path = settings.get('pdf_save_path', '')
+            # Lógica de Diretório (Automático ou Temporário)
+            salvar_auto = bool(config.get('salvar_auto', 1))
+            caminho_usuario = config.get('caminho_salvar_pdf', '')
             
-            if is_auto_save and user_save_path and os.path.exists(user_save_path):
-                # Caminho definido pelo usuário
-                save_dir = user_save_path
-                if bool(settings.get('pdf_create_subfolder', 0)):
-                    safe_client = sanitize_filename(budget['client'])
-                    save_dir = os.path.join(save_dir, safe_client)
-                    if not os.path.exists(save_dir): os.makedirs(save_dir)
+            if salvar_auto and caminho_usuario and os.path.exists(caminho_usuario):
+                dir_salvamento = caminho_usuario
+                if bool(config.get('criar_subpasta', 0)):
+                    cliente_seguro = sanitizar_nome_arquivo(orcamento['cliente'])
+                    dir_salvamento = os.path.join(dir_salvamento, cliente_seguro)
+                    if not os.path.exists(dir_salvamento): 
+                        os.makedirs(dir_salvamento)
             else:
-                # Caminho temporário
-                save_dir = tempfile.gettempdir()
+                dir_salvamento = tempfile.gettempdir()
 
-            items = json.loads(budget['items'])
+            itens = json.loads(orcamento['itens'])
 
-            pdf = ModernPDF(company_data, budget, budget['date_created'], payment_methods)
+            pdf = RelatorioPDF(dados_empresa, orcamento, orcamento['data_criacao'], metodos_pagamento)
             pdf.alias_nb_pages()
             pdf.add_page()
             pdf.ln(5)
@@ -530,94 +532,101 @@ class Api:
             pdf.set_draw_color(50, 50, 50)
             pdf.set_text_color(255, 255, 255)
             
-            w_desc, w_qty, w_unit, w_total = 90, 25, 30, 35
-            h_header = 9
+            larguras = [90, 25, 30, 35] # Descrição, Qtd, Unit, Total
+            altura_cabecalho = 9
             
-            pdf.cell(w_desc, h_header, "  DESCRIÇÃO / SERVIÇO", 1, 0, 'L', True)
-            pdf.cell(w_qty, h_header, "QTD", 1, 0, 'C', True)
-            pdf.cell(w_unit, h_header, "UNITÁRIO", 1, 0, 'R', True)
-            pdf.cell(w_total, h_header, "TOTAL  ", 1, 1, 'R', True)
+            pdf.cell(larguras[0], altura_cabecalho, "  DESCRIÇÃO / SERVIÇO", 1, 0, 'L', True)
+            pdf.cell(larguras[1], altura_cabecalho, "QTD", 1, 0, 'C', True)
+            pdf.cell(larguras[2], altura_cabecalho, "UNITÁRIO", 1, 0, 'R', True)
+            pdf.cell(larguras[3], altura_cabecalho, "TOTAL  ", 1, 1, 'R', True)
             
             pdf.set_font('Helvetica', '', 10)
             pdf.set_text_color(0, 0, 0)
             pdf.set_draw_color(220, 220, 220)
             
-            for i, item in enumerate(items):
+            # Renderização dos Itens
+            for i, item in enumerate(itens):
                 desc = item['desc']
                 if 'obs' in item and item['obs']: desc += f"\n(Obs: {item['obs']})"
 
-                fill = (i % 2 == 1)
-                if fill: pdf.set_fill_color(248, 248, 248)
+                preenchimento = (i % 2 == 1)
+                if preenchimento: pdf.set_fill_color(248, 248, 248)
                 else: pdf.set_fill_color(255, 255, 255)
 
-                x_start = pdf.get_x()
-                y_start = pdf.get_y()
+                x_inicio = pdf.get_x()
+                y_inicio = pdf.get_y()
                 
-                # Renderiza célula multilinha
-                pdf.multi_cell(w_desc, 7, "  " + desc, 'L', 'L', fill)
-                h_desc = pdf.get_y() - y_start
+                pdf.multi_cell(larguras[0], 7, "  " + desc, 'L', 'L', preenchimento)
+                altura_linha = pdf.get_y() - y_inicio
                 
-                # Retorna ao topo da linha para desenhar colunas vizinhas
-                pdf.set_xy(x_start + w_desc, y_start)
-                pdf.cell(w_qty, h_desc, str(item['qty']), 0, 0, 'C', fill)
-                pdf.cell(w_unit, h_desc, format_currency(item['price']), 0, 0, 'R', fill)
-                pdf.cell(w_total, h_desc, format_currency(item['total']) + "  ", 0, 0, 'R', fill)
+                # Posiciona para as próximas colunas
+                pdf.set_xy(x_inicio + larguras[0], y_inicio)
+                pdf.cell(larguras[1], altura_linha, str(item['qtd']), 0, 0, 'C', preenchimento)
+                pdf.cell(larguras[2], altura_linha, formatar_moeda(item['preco']), 0, 0, 'R', preenchimento)
+                pdf.cell(larguras[3], altura_linha, formatar_moeda(item['total']) + "  ", 0, 0, 'R', preenchimento)
                 
-                # Linha divisória inferior
-                pdf.line(15, y_start + h_desc, 195, y_start + h_desc)
-                pdf.ln(h_desc)
+                pdf.line(15, y_inicio + altura_linha, 195, y_inicio + altura_linha)
+                pdf.ln(altura_linha)
 
             pdf.ln(8)
-            if pdf.get_y() > 230: pdf.add_page() # Quebra página se estiver muito baixo
+            if pdf.get_y() > 230: pdf.add_page()
             
-            # Caixa Total
+            # Caixa de Totais
             x_total = 120
-            w_total_box = 195 - x_total
-            h_total_box = 12
+            larg_total = 195 - x_total
+            altura_total = 12
             
             pdf.set_fill_color(235, 235, 235)
             pdf.set_draw_color(0, 0, 0)
             pdf.set_line_width(0.3)
             
             pdf.set_x(x_total)
-            pdf.rect(x_total, pdf.get_y(), w_total_box, h_total_box, 'DF')
+            pdf.rect(x_total, pdf.get_y(), larg_total, altura_total, 'DF')
             
             pdf.set_font('Helvetica', 'B', 12)
-            pdf.cell(40, h_total_box, "  TOTAL GERAL", 0, 0, 'L')
+            pdf.cell(40, altura_total, "  TOTAL GERAL", 0, 0, 'L')
             pdf.set_text_color(0, 0, 0)
-            pdf.cell(w_total_box - 40, h_total_box, format_currency(budget['total']) + "  ", 0, 1, 'R')
+            pdf.cell(larg_total - 40, altura_total, formatar_moeda(orcamento['total']) + "  ", 0, 1, 'R')
             
             pdf.set_line_width(0.2)
             pdf.set_text_color(0, 0, 0)
 
-            # Rodapé (Texto Personalizado)
-            footer_text = settings.get('footer_text', '')
-            if footer_text:
-                pdf.set_y(-40) # Um pouco acima dos métodos de pagamento
+            # Rodapé Personalizado
+            texto_rodape = config.get('texto_rodape', '')
+            if texto_rodape:
+                pdf.set_y(-40)
                 pdf.set_draw_color(200, 200, 200)
                 pdf.line(15, pdf.get_y()-2, 195, pdf.get_y()-2)
                 pdf.set_font('Helvetica', '', 9)
                 pdf.set_text_color(60, 60, 60)
-                pdf.multi_cell(0, 5, footer_text, 0, 'C')
+                pdf.multi_cell(0, 5, texto_rodape, 0, 'C')
 
-            filename = f"Orcamento_{budget['id']}_{sanitize_filename(budget['client'])}.pdf"
-            full_path = os.path.join(save_dir, filename)
-            pdf.output(full_path)
+            nome_arquivo = f"Orcamento_{orcamento['id']}_{sanitizar_nome_arquivo(orcamento['cliente'])}.pdf"
+            caminho_completo = os.path.join(dir_salvamento, nome_arquivo)
+            pdf.output(caminho_completo)
             
-            open_file(full_path)
+            abrir_arquivo_externo(caminho_completo)
 
-            return {'status': 'ok', 'file': full_path, 'saved_automatically': is_auto_save}
+            return {'status': 'ok', 'arquivo': caminho_completo, 'salvo_automaticamente': salvar_auto}
 
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return {'status': 'error', 'message': str(e)}
+            return {'status': 'erro', 'mensagem': str(e)}
 
 # ===[ EXECUÇÃO PRINCIPAL ]===
 
 if __name__ == '__main__':
-    init_db()
-    api = Api()
-    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web', 'index.html')
-    api.window = webview.create_window('Gerador de Orçamentos PRO', file_path, js_api=api, width=1200, height=850, min_size=(900, 650))
+    inicializar_banco()
+    api = InterfaceSistema()
+    caminho_html = os.path.join(obter_caminho_app(), 'web', 'index.html')
+    
+    api.janela = webview.create_window(
+        'OrcaPro - Gerador de Orçamentos', 
+        caminho_html, 
+        js_api=api, 
+        width=1200, 
+        height=850, 
+        min_size=(900, 650)
+    )
     webview.start(debug=False)

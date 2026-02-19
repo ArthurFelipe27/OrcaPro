@@ -1,246 +1,243 @@
 /* ===[ ESTADO E VARIÁVEIS GLOBAIS ]=== */
-let currentItems = [];
-let grandTotal = 0;
-let editingItemIndex = -1;
-let currentBudgetId = null;
+let itensAtuais = [];
+let totalGeral = 0;
+let indiceEdicao = -1;
+let idOrcamentoAtual = null;
 
 /* ===[ UTILITÁRIOS DE FORMATAÇÃO ]=== */
-function formatCurrency(value) {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+function formatarMoeda(valor) {
+    return value = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function parseCurrency(str) {
+function converterMoeda(str) {
     if (!str) return 0;
     // Remove R$, espaços e substitui vírgula por ponto
     return parseFloat(str.replace('R$', '').replace(/\./g, '').replace(',', '.').trim());
 }
 
 /* ===[ NAVEGAÇÃO ]=== */
-function navigate(screenId) {
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+function navegar(idTela) {
+    document.querySelectorAll('.btn-nav').forEach(btn => btn.classList.remove('ativo'));
 
-    const map = { 'home': 0, 'create': 1, 'history': 2, 'settings': 3, 'help': 4 };
-    const buttons = document.querySelectorAll('.nav-btn');
-    if (map[screenId] !== undefined) buttons[map[screenId]].classList.add('active');
+    const mapa = { 'inicio': 0, 'criar': 1, 'historico': 2, 'configuracoes': 3, 'ajuda': 4 };
+    const botoes = document.querySelectorAll('.btn-nav');
+    if (mapa[idTela] !== undefined) botoes[mapa[idTela]].classList.add('ativo');
 
-    document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
-    document.getElementById(screenId).classList.add('active');
+    document.querySelectorAll('.secao').forEach(sec => sec.classList.remove('ativa'));
+    document.getElementById(idTela).classList.add('ativa');
 
-    if (screenId === 'home') loadStats();
-    if (screenId === 'history') loadHistory();
-    if (screenId === 'settings') loadSettings();
+    if (idTela === 'inicio') carregarEstatisticas();
+    if (idTela === 'historico') carregarHistorico();
+    if (idTela === 'configuracoes') carregarConfiguracoes();
 }
 
-function startNewBudget() {
-    resetForm();
-    navigate('create');
+function iniciarNovoOrcamento() {
+    resetarFormulario();
+    navegar('criar');
 }
 
-/* ===[ RESET E ITENS ]=== */
-function resetForm() {
-    currentBudgetId = null;
-    currentItems = [];
-    document.getElementById('form-title').innerText = 'Novo Orçamento';
-    document.getElementById('client-name').value = '';
-    document.getElementById('client-phone').value = '';
-    document.getElementById('client-email').value = '';
-    document.getElementById('client-address').value = '';
+/* ===[ GERENCIAMENTO DE ITENS E FORMULÁRIO ]=== */
+function resetarFormulario() {
+    idOrcamentoAtual = null;
+    itensAtuais = [];
+    document.getElementById('titulo-formulario').innerText = 'Novo Orçamento';
+    document.getElementById('cliente-nome').value = '';
+    document.getElementById('cliente-telefone').value = '';
+    document.getElementById('cliente-email').value = '';
+    document.getElementById('cliente-endereco').value = '';
     document.getElementById('item-desc').value = '';
     document.getElementById('item-obs').value = '';
-    document.getElementById('item-qty').value = '1';
-    document.getElementById('item-price').value = '';
+    document.getElementById('item-qtd').value = '1';
+    document.getElementById('item-preco').value = '';
 
-    resetItemEditState();
-    renderItems();
+    resetarEstadoEdicao();
+    renderizarItens();
 }
 
-function maskMoneyInput(input) {
-    let value = input.value.replace(/\D/g, "");
-    value = (value / 100).toFixed(2) + "";
-    value = value.replace(".", ",");
-    value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
-    input.value = value;
+function mascaraMoedaInput(input) {
+    let valor = input.value.replace(/\D/g, "");
+    valor = (valor / 100).toFixed(2) + "";
+    valor = valor.replace(".", ",");
+    valor = valor.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+    input.value = valor;
 }
 
-function getMoneyValue(inputId) {
-    const val = document.getElementById(inputId).value;
+function obterValorMoeda(idInput) {
+    const val = document.getElementById(idInput).value;
     if (!val) return 0;
     return parseFloat(val.replace(/\./g, '').replace(',', '.'));
 }
 
-function addItem() {
+function adicionarItem() {
     const desc = document.getElementById('item-desc').value;
     const obs = document.getElementById('item-obs').value;
-    const qty = parseFloat(document.getElementById('item-qty').value);
-    const price = getMoneyValue('item-price');
+    const qtd = parseFloat(document.getElementById('item-qtd').value);
+    const preco = obterValorMoeda('item-preco');
 
-    if (!desc || isNaN(qty) || price <= 0) {
+    if (!desc || isNaN(qtd) || preco <= 0) {
         alert('Preencha a descrição, quantidade e um preço válido.');
         return;
     }
 
-    const total = qty * price;
-    const newItem = { desc, obs, qty, price, total };
+    const total = qtd * preco;
+    const novoItem = { desc, obs, qtd, preco, total };
 
-    if (editingItemIndex >= 0) {
-        currentItems[editingItemIndex] = newItem;
-        resetItemEditState();
+    if (indiceEdicao >= 0) {
+        itensAtuais[indiceEdicao] = novoItem;
+        resetarEstadoEdicao();
     } else {
-        currentItems.push(newItem);
+        itensAtuais.push(novoItem);
     }
 
-    renderItems();
+    renderizarItens();
 
     document.getElementById('item-desc').value = '';
     document.getElementById('item-obs').value = '';
-    document.getElementById('item-qty').value = '1';
-    document.getElementById('item-price').value = '';
+    document.getElementById('item-qtd').value = '1';
+    document.getElementById('item-preco').value = '';
     document.getElementById('item-desc').focus();
 }
 
-function resetItemEditState() {
-    editingItemIndex = -1;
-    const btn = document.getElementById('btn-add-item');
+function resetarEstadoEdicao() {
+    indiceEdicao = -1;
+    const btn = document.getElementById('btn-adicionar-item');
     btn.innerText = 'Adicionar';
-    btn.classList.remove('btn-warning');
-    btn.classList.add('btn-secondary');
+    btn.classList.remove('btn-aviso');
+    btn.classList.add('btn-secundario');
 }
 
-function editItem(index) {
-    const item = currentItems[index];
+function editarItem(index) {
+    const item = itensAtuais[index];
     document.getElementById('item-desc').value = item.desc;
     document.getElementById('item-obs').value = item.obs || '';
-    document.getElementById('item-qty').value = item.qty;
+    document.getElementById('item-qtd').value = item.qtd;
 
     // Formatar preço para o input
-    let priceStr = item.price.toFixed(2).replace('.', ',');
-    // Adicionar separadores de milhar manualmente se necessário, ou deixar simples
-    document.getElementById('item-price').value = priceStr;
+    let precoStr = item.preco.toFixed(2).replace('.', ',');
+    document.getElementById('item-preco').value = precoStr;
 
-    editingItemIndex = index;
-    const btn = document.getElementById('btn-add-item');
+    indiceEdicao = index;
+    const btn = document.getElementById('btn-adicionar-item');
     btn.innerText = 'Atualizar Item';
-    btn.classList.remove('btn-secondary');
-    btn.classList.add('btn-warning');
+    btn.classList.remove('btn-secundario');
+    btn.classList.add('btn-aviso');
     document.getElementById('item-desc').focus();
 }
 
-function removeItem(index) {
+function removerItem(index) {
     if (confirm('Remover este item?')) {
-        currentItems.splice(index, 1);
-        if (editingItemIndex === index) resetItemEditState();
-        renderItems();
+        itensAtuais.splice(index, 1);
+        if (indiceEdicao === index) resetarEstadoEdicao();
+        renderizarItens();
     }
 }
 
-function renderItems() {
-    const tbody = document.getElementById('items-list');
-    tbody.innerHTML = '';
-    grandTotal = 0;
+function renderizarItens() {
+    const corpoTabela = document.getElementById('lista-itens');
+    corpoTabela.innerHTML = '';
+    totalGeral = 0;
 
-    currentItems.forEach((item, index) => {
-        grandTotal += item.total;
+    itensAtuais.forEach((item, index) => {
+        totalGeral += item.total;
         let descHtml = `<strong>${item.desc}</strong>`;
-        if (item.obs) descHtml += `<span class="item-obs-text">Obs: ${item.obs}</span>`;
+        if (item.obs) descHtml += `<span class="item-obs-texto">Obs: ${item.obs}</span>`;
 
-        const row = `
-            <tr class="${editingItemIndex === index ? 'editing-row' : ''}">
+        const linha = `
+            <tr class="${indiceEdicao === index ? 'linha-editando' : ''}">
                 <td>${descHtml}</td>
-                <td>${item.qty}</td>
-                <td>${formatCurrency(item.price)}</td>
-                <td>${formatCurrency(item.total)}</td>
+                <td>${item.qtd}</td>
+                <td>${formatarMoeda(item.preco)}</td>
+                <td>${formatarMoeda(item.total)}</td>
                 <td>
-                    <button class="btn btn-secondary" style="padding: 5px 10px;" onclick="editItem(${index})">✏️</button>
-                    <button class="btn btn-danger" style="padding: 5px 10px;" onclick="removeItem(${index})">X</button>
+                    <button class="btn btn-secundario" style="padding: 5px 10px;" onclick="editarItem(${index})">✏️</button>
+                    <button class="btn btn-perigo" style="padding: 5px 10px;" onclick="removerItem(${index})">X</button>
                 </td>
             </tr>
         `;
-        tbody.innerHTML += row;
+        corpoTabela.innerHTML += linha;
     });
 
-    document.getElementById('total-display').innerText = `Total: ${formatCurrency(grandTotal)}`;
+    document.getElementById('display-total').innerText = `Total: ${formatarMoeda(totalGeral)}`;
 }
 
 /* ===[ SALVAR ORÇAMENTO ]=== */
-async function saveBudget() {
-    const client = document.getElementById('client-name').value;
-    const phone = document.getElementById('client-phone').value;
-    const email = document.getElementById('client-email').value;
-    const address = document.getElementById('client-address').value;
+async function salvarOrcamento() {
+    const cliente = document.getElementById('cliente-nome').value;
+    const telefone = document.getElementById('cliente-telefone').value;
+    const email = document.getElementById('cliente-email').value;
+    const endereco = document.getElementById('cliente-endereco').value;
 
-    if (!client || currentItems.length === 0) {
+    if (!cliente || itensAtuais.length === 0) {
         alert('Informe o nome do cliente e adicione itens.');
         return;
     }
 
-    // Validação estrita de telefone
-    const cleanPhone = phone.replace(/\D/g, "");
-    if (cleanPhone.length < 10) {
+    const telefoneLimpo = telefone.replace(/\D/g, "");
+    if (telefoneLimpo.length < 10) {
         alert('Por favor, informe um telefone válido com DDD (mínimo 10 dígitos).');
         return;
     }
 
-    const budgetData = {
-        id: currentBudgetId,
-        client: client,
-        phone: phone,
+    const dadosOrcamento = {
+        id: idOrcamentoAtual,
+        cliente: cliente,
+        telefone: telefone,
         email: email,
-        address: address,
-        items: currentItems,
-        total: grandTotal,
-        date: new Date().toLocaleDateString('pt-BR')
+        endereco: endereco,
+        itens: itensAtuais,
+        total: totalGeral,
+        data: new Date().toLocaleDateString('pt-BR')
     };
 
     try {
-        const response = await window.pywebview.api.save_budget(budgetData);
-        if (response.status === 'ok') {
+        const resposta = await window.pywebview.api.salvar_orcamento(dadosOrcamento);
+        if (resposta.status === 'ok') {
             alert('Orçamento salvo com sucesso!');
-            resetForm();
-            navigate('history');
+            resetarFormulario();
+            navegar('historico');
         } else {
-            alert('Erro ao salvar: ' + response.message);
+            alert('Erro ao salvar: ' + resposta.mensagem);
         }
     } catch (e) {
         alert('Erro de conexão com o sistema.');
     }
 }
 
-async function editBudget(id) {
+async function editarOrcamento(id) {
     try {
-        const budget = await window.pywebview.api.get_budget_details(id);
-        if (budget) {
-            currentBudgetId = budget.id;
-            document.getElementById('form-title').innerText = `Editando Orçamento #${budget.id}`;
-            document.getElementById('client-name').value = budget.client;
-            document.getElementById('client-email').value = budget.email || '';
-            document.getElementById('client-phone').value = budget.phone || '';
-            document.getElementById('client-address').value = budget.address || '';
-            currentItems = budget.items;
-            renderItems();
-            navigate('create');
+        const orcamento = await window.pywebview.api.obter_detalhes_orcamento(id);
+        if (orcamento) {
+            idOrcamentoAtual = orcamento.id;
+            document.getElementById('titulo-formulario').innerText = `Editando Orçamento #${orcamento.id}`;
+            document.getElementById('cliente-nome').value = orcamento.cliente;
+            document.getElementById('cliente-email').value = orcamento.email || '';
+            document.getElementById('cliente-telefone').value = orcamento.telefone || '';
+            document.getElementById('cliente-endereco').value = orcamento.endereco || '';
+            itensAtuais = orcamento.itens;
+            renderizarItens();
+            navegar('criar');
         }
     } catch (e) { alert('Erro ao carregar orçamento.'); }
 }
 
-/* ===[ HISTÓRICO ]=== */
-async function setStatus(id, newStatus) {
+/* ===[ HISTÓRICO E AÇÕES ]=== */
+async function definirStatus(id, novoStatus) {
     try {
-        const response = await window.pywebview.api.update_status(id, newStatus);
-        if (response.status === 'ok') { loadHistory(); loadStats(); }
+        const resposta = await window.pywebview.api.atualizar_status(id, novoStatus);
+        if (resposta.status === 'ok') { carregarHistorico(); carregarEstatisticas(); }
     } catch (e) { }
 }
 
-async function generatePDF(id) {
+async function gerarPDF(id) {
     try {
         document.body.style.cursor = 'wait';
-        const response = await window.pywebview.api.generate_pdf(id);
+        const resposta = await window.pywebview.api.gerar_pdf(id);
         document.body.style.cursor = 'default';
 
-        if (response.status === 'ok') {
-            // Se salvo automaticamente, ok. Se for temp, o Python já abre.
-            console.log("PDF:", response.file);
+        if (resposta.status === 'ok') {
+            console.log("PDF Gerado:", resposta.arquivo);
         } else {
-            alert('Erro ao gerar PDF: ' + response.message);
+            alert('Erro ao gerar PDF: ' + resposta.mensagem);
         }
     } catch (e) {
         document.body.style.cursor = 'default';
@@ -248,49 +245,50 @@ async function generatePDF(id) {
     }
 }
 
-async function deleteBudget(id) {
+async function excluirOrcamento(id) {
     if (!confirm("Excluir permanentemente?")) return;
     try {
-        await window.pywebview.api.delete_budget(id);
-        loadHistory();
-        loadStats();
+        await window.pywebview.api.excluir_orcamento(id);
+        carregarHistorico();
+        carregarEstatisticas();
     } catch (e) { }
 }
 
-async function loadHistory() {
+async function carregarHistorico() {
     try {
-        const history = await window.pywebview.api.get_history();
-        const container = document.getElementById('history-container');
-        if (history.length === 0) {
+        const historico = await window.pywebview.api.obter_historico();
+        const container = document.getElementById('container-historico');
+        if (historico.length === 0) {
             container.innerHTML = '<p style="text-align:center; color: #666; margin-top: 20px;">Nenhum orçamento encontrado.</p>';
             return;
         }
 
         let html = '';
-        history.reverse().forEach(item => {
-            let statusClass = 'status-pending';
-            let statusLabel = 'Pendente';
-            if (item.status === 'APPROVED') { statusClass = 'status-approved'; statusLabel = 'Aprovado ✅'; }
-            else if (item.status === 'REJECTED') { statusClass = 'status-rejected'; statusLabel = 'Rejeitado ❌'; }
+        historico.reverse().forEach(item => {
+            let classeStatus = 'status-pendente';
+            let rotuloStatus = 'Pendente';
+            // Mapeamento dos status do banco (que estão em inglês ou padrão antigo) para visual
+            if (item.status === 'APROVADO' || item.status === 'APPROVED') { classeStatus = 'status-aprovado'; rotuloStatus = 'Aprovado ✅'; }
+            else if (item.status === 'REJEITADO' || item.status === 'REJECTED') { classeStatus = 'status-rejeitado'; rotuloStatus = 'Rejeitado ❌'; }
 
             html += `
-                <div class="history-item ${statusClass}">
+                <div class="item-historico ${classeStatus}">
                     <div>
-                        <div style="font-weight: 600; font-size: 1.1rem;">${item.client}</div>
-                        <div style="font-size: 0.9rem; color: var(--text-muted);">
-                             #${item.id} • ${item.date} • ${item.items_count} itens
+                        <div style="font-weight: 600; font-size: 1.1rem;">${item.cliente}</div>
+                        <div style="font-size: 0.9rem; color: var(--texto-suave);">
+                             #${item.id} • ${item.data} • ${item.qtd_itens} itens
                         </div>
-                        <div style="font-size: 0.8rem; font-weight: bold; margin-top: 4px; color: #555;">${statusLabel}</div>
+                        <div style="font-size: 0.8rem; font-weight: bold; margin-top: 4px; color: #555;">${rotuloStatus}</div>
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
-                        <div style="font-weight: 700; color: var(--text-main); font-size: 1.1rem;">${formatCurrency(item.total)}</div>
+                        <div style="font-weight: 700; color: var(--texto-principal); font-size: 1.1rem;">${formatarMoeda(item.total)}</div>
                         <div style="display: flex; gap: 5px;">
-                            ${item.status !== 'APPROVED' ? `<button class="btn-icon" onclick="setStatus(${item.id}, 'APPROVED')" title="Aprovar">✅</button>` : ''}
-                            ${item.status !== 'REJECTED' ? `<button class="btn-icon" onclick="setStatus(${item.id}, 'REJECTED')" title="Rejeitar">❌</button>` : ''}
+                            ${item.status !== 'APROVADO' && item.status !== 'APPROVED' ? `<button class="btn-icone" onclick="definirStatus(${item.id}, 'APROVADO')" title="Aprovar">✅</button>` : ''}
+                            ${item.status !== 'REJEITADO' && item.status !== 'REJECTED' ? `<button class="btn-icone" onclick="definirStatus(${item.id}, 'REJEITADO')" title="Rejeitar">❌</button>` : ''}
                             <div style="width: 1px; background: #ccc; margin: 0 5px;"></div>
-                            <button class="btn-icon" onclick="editBudget(${item.id})" title="Editar">✏️</button>
-                            <button class="btn-icon" onclick="generatePDF(${item.id})" title="PDF">📄</button>
-                            <button class="btn-icon" onclick="deleteBudget(${item.id})" title="Excluir" style="color: #ef4444;">🗑️</button>
+                            <button class="btn-icone" onclick="editarOrcamento(${item.id})" title="Editar">✏️</button>
+                            <button class="btn-icone" onclick="gerarPDF(${item.id})" title="PDF">📄</button>
+                            <button class="btn-icone" onclick="excluirOrcamento(${item.id})" title="Excluir" style="color: #ef4444;">🗑️</button>
                         </div>
                     </div>
                 </div>
@@ -300,119 +298,113 @@ async function loadHistory() {
     } catch (e) { }
 }
 
-async function loadStats() {
+async function carregarEstatisticas() {
     try {
-        const stats = await window.pywebview.api.get_stats();
-        document.getElementById('stat-approved-value').innerText = formatCurrency(stats.approved_value);
-        document.getElementById('stat-approved-count').innerText = stats.approved_count;
-        document.getElementById('stat-pending-value').innerText = formatCurrency(stats.pending_value);
-        document.getElementById('stat-pending-count').innerText = stats.pending_count;
-        document.getElementById('stat-rejected-count').innerText = stats.rejected_count;
-        document.getElementById('stat-total-count').innerText = stats.total_count;
+        const stats = await window.pywebview.api.obter_estatisticas();
+        document.getElementById('stat-aprovado-valor').innerText = formatarMoeda(stats.aprovados_valor);
+        document.getElementById('stat-aprovado-qtd').innerText = stats.aprovados_qtd;
+        document.getElementById('stat-pendente-valor').innerText = formatarMoeda(stats.pendentes_valor);
+        document.getElementById('stat-pendente-qtd').innerText = stats.pendentes_qtd;
+        document.getElementById('stat-rejeitado-qtd').innerText = stats.rejeitados_qtd;
+        document.getElementById('stat-total-geral').innerText = stats.total_geral;
     } catch (e) { }
 }
 
 /* ===[ CONFIGURAÇÕES ]=== */
-async function selectFolder() {
+async function selecionarPasta() {
     try {
-        const path = await window.pywebview.api.select_folder();
-        if (path) document.getElementById('pdf-path').value = path;
+        const caminho = await window.pywebview.api.selecionar_pasta();
+        if (caminho) document.getElementById('caminho-pdf').value = caminho;
     } catch (e) { }
 }
 
-async function selectLogo() {
+async function selecionarLogo() {
     try {
-        const response = await window.pywebview.api.select_logo();
-        if (response.status === 'ok') {
-            document.getElementById('logo-path').value = response.path;
+        const resposta = await window.pywebview.api.selecionar_logo();
+        if (resposta.status === 'ok') {
+            document.getElementById('caminho-logo').value = resposta.caminho;
             const preview = document.getElementById('logo-preview');
-            // Adiciona timestamp para forçar reload da imagem se for o mesmo nome
-            preview.src = response.path + '?t=' + new Date().getTime();
+            // Cache busting
+            preview.src = resposta.caminho + '?t=' + new Date().getTime();
             preview.style.display = 'block';
             document.getElementById('logo-placeholder').style.display = 'none';
-        } else if (response.status === 'error') {
-            alert(response.message);
+        } else if (resposta.status === 'erro') {
+            alert(resposta.mensagem);
         }
     } catch (e) { console.error(e); }
 }
 
-async function loadSettings() {
+async function carregarConfiguracoes() {
     try {
-        const s = await window.pywebview.api.get_settings();
-        if (s) {
-            document.getElementById('company-name').value = s.company || '';
-            document.getElementById('company-legal-name').value = s.legal_name || '';
-            document.getElementById('company-cnpj').value = s.cnpj || '';
-            document.getElementById('company-address').value = s.address || '';
-            document.getElementById('company-phone').value = s.phone || '';
-            document.getElementById('footer-text').value = s.footer || '';
-            document.getElementById('pdf-path').value = s.pdf_path || '';
-            document.getElementById('pdf-subfolder').checked = s.create_subfolder;
-            document.getElementById('pdf-auto-save').checked = s.auto_save;
+        const cfg = await window.pywebview.api.obter_configuracoes();
+        if (cfg) {
+            document.getElementById('empresa-nome').value = cfg.empresa || '';
+            document.getElementById('empresa-razao-social').value = cfg.razao_social || '';
+            document.getElementById('empresa-cnpj').value = cfg.cnpj || '';
+            document.getElementById('empresa-endereco').value = cfg.endereco || '';
+            document.getElementById('empresa-telefone').value = cfg.telefone || '';
+            document.getElementById('texto-rodape').value = cfg.rodape || '';
+            document.getElementById('caminho-pdf').value = cfg.caminho_pdf || '';
+            document.getElementById('pdf-subpasta').checked = cfg.criar_subpasta;
+            document.getElementById('pdf-salvar-auto').checked = cfg.salvar_auto;
 
-            // Logo
-            if (s.logo_path) {
-                document.getElementById('logo-path').value = s.logo_path;
+            if (cfg.caminho_logo) {
+                document.getElementById('caminho-logo').value = cfg.caminho_logo;
                 const preview = document.getElementById('logo-preview');
-                preview.src = s.logo_path + '?t=' + new Date().getTime();
+                preview.src = cfg.caminho_logo + '?t=' + new Date().getTime();
                 preview.style.display = 'block';
                 document.getElementById('logo-placeholder').style.display = 'none';
             }
 
-            // Pagamentos
-            document.getElementById('pay-pix').checked = s.payment_pix;
-            document.getElementById('pay-credit').checked = s.payment_credit;
-            document.getElementById('pay-debit').checked = s.payment_debit;
-            document.getElementById('pay-cash').checked = s.payment_cash;
+            document.getElementById('pag-pix').checked = cfg.pagamento_pix;
+            document.getElementById('pag-credito').checked = cfg.pagamento_credito;
+            document.getElementById('pag-debito').checked = cfg.pagamento_debito;
+            document.getElementById('pag-dinheiro').checked = cfg.pagamento_dinheiro;
         }
     } catch (e) { }
 }
 
-async function saveSettings() {
+async function salvarConfiguracoes() {
     try {
-        await window.pywebview.api.save_settings({
-            company: document.getElementById('company-name').value,
-            legal_name: document.getElementById('company-legal-name').value,
-            cnpj: document.getElementById('company-cnpj').value,
-            address: document.getElementById('company-address').value,
-            phone: document.getElementById('company-phone').value,
-            footer: document.getElementById('footer-text').value,
-            pdf_path: document.getElementById('pdf-path').value,
-            create_subfolder: document.getElementById('pdf-subfolder').checked,
-            auto_save: document.getElementById('pdf-auto-save').checked,
-            logo_path: document.getElementById('logo-path').value,
-            payment_pix: document.getElementById('pay-pix').checked,
-            payment_credit: document.getElementById('pay-credit').checked,
-            payment_debit: document.getElementById('pay-debit').checked,
-            payment_cash: document.getElementById('pay-cash').checked,
+        await window.pywebview.api.salvar_configuracoes({
+            empresa: document.getElementById('empresa-nome').value,
+            razao_social: document.getElementById('empresa-razao-social').value,
+            cnpj: document.getElementById('empresa-cnpj').value,
+            endereco: document.getElementById('empresa-endereco').value,
+            telefone: document.getElementById('empresa-telefone').value,
+            rodape: document.getElementById('texto-rodape').value,
+            caminho_pdf: document.getElementById('caminho-pdf').value,
+            criar_subpasta: document.getElementById('pdf-subpasta').checked,
+            salvar_auto: document.getElementById('pdf-salvar-auto').checked,
+            caminho_logo: document.getElementById('caminho-logo').value,
+            pagamento_pix: document.getElementById('pag-pix').checked,
+            pagamento_credito: document.getElementById('pag-credito').checked,
+            pagamento_debito: document.getElementById('pag-debito').checked,
+            pagamento_dinheiro: document.getElementById('pag-dinheiro').checked,
         });
         alert('Configurações salvas!');
     } catch (e) { }
 }
 
 /* ===[ MÁSCARAS E INPUTS ]=== */
-function maskPhone(event) {
-    let input = event.target;
-    let value = input.value.replace(/\D/g, "");
+function mascaraTelefone(evento) {
+    let input = evento.target;
+    let valor = input.value.replace(/\D/g, "");
 
-    // Limita a 11 números
-    if (value.length > 11) value = value.slice(0, 11);
+    if (valor.length > 11) valor = valor.slice(0, 11);
 
-    // Formatação
-    if (value.length > 10) {
-        // (11) 9 1234-5678 (Padrão com 9º dígito separado)
-        value = value.replace(/^(\d{2})(\d{1})(\d{4})(\d{4}).*/, '($1) $2 $3-$4');
-    } else if (value.length > 6) {
-        // (11) 1234-5678 (Fixo)
-        value = value.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3');
-    } else if (value.length > 2) {
-        value = value.replace(/^(\d{2})(\d{0,5}).*/, '($1) $2');
+    if (valor.length > 10) {
+        valor = valor.replace(/^(\d{2})(\d{1})(\d{4})(\d{4}).*/, '($1) $2 $3-$4');
+    } else if (valor.length > 6) {
+        valor = valor.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3');
+    } else if (valor.length > 2) {
+        valor = valor.replace(/^(\d{2})(\d{0,5}).*/, '($1) $2');
     }
-    input.value = value;
+    input.value = valor;
 }
 
-function maskCNPJ(event) {
-    let input = event.target;
+function mascaraCNPJ(evento) {
+    let input = evento.target;
     let v = input.value.replace(/\D/g, "");
     if (v.length > 14) v = v.slice(0, 14);
     v = v.replace(/^(\d{2})(\d)/, '$1.$2');
@@ -423,14 +415,14 @@ function maskCNPJ(event) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => loadStats(), 500);
+    setTimeout(() => carregarEstatisticas(), 500);
 
-    const phoneInput = document.getElementById('client-phone');
-    if (phoneInput) phoneInput.addEventListener('input', maskPhone);
+    const inputTelefone = document.getElementById('cliente-telefone');
+    if (inputTelefone) inputTelefone.addEventListener('input', mascaraTelefone);
 
-    const companyPhone = document.getElementById('company-phone');
-    if (companyPhone) companyPhone.addEventListener('input', maskPhone);
+    const inputEmpresaTel = document.getElementById('empresa-telefone');
+    if (inputEmpresaTel) inputEmpresaTel.addEventListener('input', mascaraTelefone);
 
-    const cnpjInput = document.getElementById('company-cnpj');
-    if (cnpjInput) cnpjInput.addEventListener('input', maskCNPJ);
+    const inputCNPJ = document.getElementById('empresa-cnpj');
+    if (inputCNPJ) inputCNPJ.addEventListener('input', mascaraCNPJ);
 });
