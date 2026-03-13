@@ -10,6 +10,8 @@ import shutil
 import tempfile
 from datetime import datetime
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
+
 try:
     from PIL import Image
 except ImportError:
@@ -70,7 +72,7 @@ def inicializar_banco():
         )
     ''')
     
-    # Migrações para garantir compatibilidade com versões anteriores
+    # Migrações
     migracoes = [
         ('configuracoes', 'caminho_salvar_pdf', 'TEXT'),
         ('configuracoes', 'criar_subpasta', 'INTEGER'),
@@ -98,7 +100,7 @@ def inicializar_banco():
                 valor_padrao = tipo.split('DEFAULT')[1].strip()
                 cursor.execute(f"UPDATE {tabela} SET {col_nome} = {valor_padrao} WHERE {col_nome} IS NULL")
         except sqlite3.OperationalError:
-            pass # Coluna já existe
+            pass 
     
     conexao.commit()
     conexao.close()
@@ -106,16 +108,21 @@ def inicializar_banco():
 # ===[ FUNÇÕES AUXILIARES ]===
 
 def formatar_moeda(valor):
-    """Formata float para BRL (R$ 1.234,56)."""
+    """Formata float para BRL."""
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+def limpar_texto(texto):
+    """Converte texto para latin-1 para compatibilidade com fontes padrão do FPDF."""
+    if not texto: return ""
+    return str(texto).encode('latin-1', 'replace').decode('latin-1')
+
 def abrir_arquivo_externo(caminho):
-    """Abre o arquivo com o programa padrão do sistema operacional."""
-    if platform.system() == 'Darwin':       # macOS
+    """Abre o arquivo com o programa padrão do sistema."""
+    if platform.system() == 'Darwin':
         subprocess.call(('open', caminho))
-    elif platform.system() == 'Windows':    # Windows
+    elif platform.system() == 'Windows':
         os.startfile(caminho)
-    else:                                   # Linux
+    else:
         subprocess.call(('xdg-open', caminho))
 
 def sanitizar_nome_arquivo(nome):
@@ -135,7 +142,7 @@ class RelatorioPDF(FPDF):
         self.set_margins(15, 15, 15)
 
     def header(self):
-        # Sobrescrita do método header do FPDF
+        # Topo decorativo
         self.set_fill_color(55, 65, 81)
         self.rect(0, 0, 210, 5, 'F')
         self.ln(10)
@@ -150,47 +157,47 @@ class RelatorioPDF(FPDF):
 
         pos_texto_x = 50 if possui_logo else 15
         
-        # Dados da Empresa
+        # Dados da Empresa (Sintaxe atualizada FPDF2)
         self.set_xy(pos_texto_x, 15)
         self.set_text_color(0, 0, 0)
         self.set_font('Helvetica', 'B', 14)
-        self.cell(100, 7, self.empresa.get('nome', 'Minha Empresa'), 0, 1, 'L')
+        self.cell(100, 7, limpar_texto(self.empresa.get('nome', 'Minha Empresa')), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
         
         self.set_font('Helvetica', '', 9)
         self.set_text_color(80, 80, 80)
         
         if self.empresa.get('razao_social'):
             self.set_x(pos_texto_x)
-            self.cell(100, 5, self.empresa['razao_social'], 0, 1, 'L')
+            self.cell(100, 5, limpar_texto(self.empresa['razao_social']), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
         if self.empresa.get('cnpj'):
             self.set_x(pos_texto_x)
-            self.cell(100, 5, f"CNPJ: {self.empresa['cnpj']}", 0, 1, 'L')
+            self.cell(100, 5, limpar_texto(f"CNPJ: {self.empresa['cnpj']}"), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
         if self.empresa.get('endereco'):
             self.set_x(pos_texto_x)
-            self.cell(100, 5, self.empresa['endereco'], 0, 1, 'L')
+            self.cell(100, 5, limpar_texto(self.empresa['endereco']), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
         if self.empresa.get('telefone'):
             self.set_x(pos_texto_x)
-            self.cell(100, 5, f"Tel: {self.empresa['telefone']}", 0, 1, 'L')
+            self.cell(100, 5, limpar_texto(f"Tel: {self.empresa['telefone']}"), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
 
         # Título do Documento
         self.set_y(15)
         self.set_font('Helvetica', 'B', 24)
         self.set_text_color(200, 200, 200)
-        self.cell(0, 10, "ORÇAMENTO", 0, 1, 'R')
+        self.cell(0, 10, limpar_texto("ORÇAMENTO"), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='R')
 
         y_pos = 28
         self.set_xy(110, y_pos)
         self.set_font('Helvetica', 'B', 10)
         self.set_text_color(0, 0, 0)
-        self.cell(40, 6, "Número:", 0, 0, 'R')
+        self.cell(40, 6, limpar_texto("Número:"), border=0, new_x=XPos.RIGHT, new_y=YPos.TOP, align='R')
         self.set_font('Helvetica', '', 10)
-        self.cell(45, 6, f"#{self.orcamento['id']:04d}", 0, 1, 'R')
+        self.cell(45, 6, limpar_texto(f"#{self.orcamento['id']:04d}"), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='R')
         
         self.set_xy(110, y_pos + 6)
         self.set_font('Helvetica', 'B', 10)
-        self.cell(40, 6, "Data:", 0, 0, 'R')
+        self.cell(40, 6, limpar_texto("Data:"), border=0, new_x=XPos.RIGHT, new_y=YPos.TOP, align='R')
         self.set_font('Helvetica', '', 10)
-        self.cell(45, 6, self.data_str, 0, 1, 'R')
+        self.cell(45, 6, limpar_texto(self.data_str), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='R')
 
         self.set_y(max(self.get_y(), 50)) 
         self.ln(5)
@@ -202,35 +209,34 @@ class RelatorioPDF(FPDF):
         
         self.set_font('Helvetica', 'B', 10)
         self.set_text_color(100, 100, 100)
-        self.cell(0, 6, "PREPARADO PARA:", 0, 1, 'L')
+        self.cell(0, 6, limpar_texto("PREPARADO PARA:"), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
         
         self.set_font('Helvetica', 'B', 12)
         self.set_text_color(0, 0, 0)
-        self.cell(0, 7, self.orcamento['cliente'], 0, 1, 'L')
+        self.cell(0, 7, limpar_texto(self.orcamento['cliente']), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
         
         self.set_font('Helvetica', '', 10)
         self.set_text_color(80, 80, 80)
         
         detalhes_cliente = []
-        if self.orcamento['email']: detalhes_cliente.append(self.orcamento['email'])
-        if self.orcamento['telefone']: detalhes_cliente.append(self.orcamento['telefone'])
+        if self.orcamento.get('email'): detalhes_cliente.append(self.orcamento['email'])
+        if self.orcamento.get('telefone'): detalhes_cliente.append(self.orcamento['telefone'])
         
         if detalhes_cliente:
-            self.cell(0, 5, " | ".join(detalhes_cliente), 0, 1, 'L')
+            self.cell(0, 5, limpar_texto(" | ".join(detalhes_cliente)), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
             
-        if self.orcamento['endereco']:
-            self.cell(0, 5, self.orcamento['endereco'], 0, 1, 'L')
+        if self.orcamento.get('endereco'):
+            self.cell(0, 5, limpar_texto(self.orcamento['endereco']), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
             
         self.ln(10)
 
     def footer(self):
-        # Sobrescrita do método footer do FPDF
         self.set_y(-25)
         
         if self.pagamentos:
             self.set_font('Helvetica', 'B', 8)
             self.set_text_color(50, 50, 50)
-            self.cell(0, 4, "Formas de Pagamento Aceitas:", 0, 1, 'C')
+            self.cell(0, 4, limpar_texto("Formas de Pagamento Aceitas:"), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
             self.set_font('Helvetica', '', 8)
             
             texto_metodos = []
@@ -239,14 +245,15 @@ class RelatorioPDF(FPDF):
             if self.pagamentos.get('debito'): texto_metodos.append("Cartão de Débito")
             if self.pagamentos.get('dinheiro'): texto_metodos.append("Dinheiro")
             
-            texto_final = ", ".join(texto_metodos) + "."
-            self.cell(0, 4, texto_final, 0, 1, 'C')
+            if texto_metodos:
+                texto_final = ", ".join(texto_metodos) + "."
+                self.cell(0, 4, limpar_texto(texto_final), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
 
         self.set_font('Helvetica', 'I', 8)
         self.set_text_color(150, 150, 150)
-        self.cell(0, 10, f'Página {self.page_no()}/{{nb}}', 0, 0, 'C')
+        self.cell(0, 10, limpar_texto(f'Página {self.page_no()}/{{nb}}'), border=0, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C')
 
-# ===[ API DO SISTEMA (PONTE JS <-> PYTHON) ]===
+# ===[ API DO SISTEMA ]===
 
 class InterfaceSistema:
     def __init__(self):
@@ -260,7 +267,6 @@ class InterfaceSistema:
         return None
 
     def selecionar_logo(self):
-        """Abre diálogo, processa e salva a logo em formato quadrado."""
         if self.janela:
             tipos_arquivo = ('Imagens (*.png;*.jpg;*.jpeg)', 'Todos os arquivos (*.*)')
             resultado = self.janela.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False, file_types=tipos_arquivo)
@@ -269,18 +275,13 @@ class InterfaceSistema:
                 caminho_origem = resultado[0]
                 try:
                     img = Image.open(caminho_origem).convert("RGBA")
-                    
                     dimensao_max = 3300
                     if img.width > dimensao_max or img.height > dimensao_max:
                         img.thumbnail((dimensao_max, dimensao_max), Image.Resampling.LANCZOS)
                     
                     tamanho = max(img.width, img.height)
                     nova_img = Image.new("RGBA", (tamanho, tamanho), (255, 255, 255, 0))
-                    
-                    esquerda = (tamanho - img.width) // 2
-                    topo = (tamanho - img.height) // 2
-                    nova_img.paste(img, (esquerda, topo), img)
-                    
+                    nova_img.paste(img, ((tamanho - img.width) // 2, (tamanho - img.height) // 2), img)
                     nova_img.save(ARQUIVO_LOGO, "PNG")
                     return {'status': 'ok', 'caminho': ARQUIVO_LOGO}
                 except Exception as e:
@@ -363,15 +364,13 @@ class InterfaceSistema:
         resultados = []
         for linha in linhas:
             itens = json.loads(linha['itens'])
-            status = linha['status'] if 'status' in linha.keys() and linha['status'] else 'PENDENTE'
-            
             resultados.append({
                 'id': linha['id'],
                 'cliente': linha['cliente'],
                 'total': linha['total'],
                 'data': linha['data_criacao'],
                 'qtd_itens': len(itens),
-                'status': status
+                'status': linha['status'] or 'PENDENTE'
             })
         conexao.close()
         return resultados
@@ -379,31 +378,20 @@ class InterfaceSistema:
     def obter_estatisticas(self):
         conexao = sqlite3.connect(ARQUIVO_DB)
         cursor = conexao.cursor()
-        
         cursor.execute('SELECT COUNT(*) FROM orcamentos')
         total_geral = cursor.fetchone()[0]
-        
         cursor.execute("SELECT COUNT(*), SUM(total) FROM orcamentos WHERE status = 'APROVADO'")
-        linha_aprovados = cursor.fetchone()
-        aprovados_qtd = linha_aprovados[0] or 0
-        aprovados_valor = linha_aprovados[1] or 0.0
-        
+        l_aprov = cursor.fetchone()
         cursor.execute("SELECT COUNT(*), SUM(total) FROM orcamentos WHERE status = 'PENDENTE' OR status IS NULL")
-        linha_pendentes = cursor.fetchone()
-        pendentes_qtd = linha_pendentes[0] or 0
-        pendentes_valor = linha_pendentes[1] or 0.0
-        
+        l_pend = cursor.fetchone()
         cursor.execute("SELECT COUNT(*) FROM orcamentos WHERE status = 'REJEITADO'")
-        rejeitados_qtd = cursor.fetchone()[0] or 0
-        
+        rej_qtd = cursor.fetchone()[0] or 0
         conexao.close()
         return {
             'total_geral': total_geral,
-            'aprovados_qtd': aprovados_qtd,
-            'aprovados_valor': aprovados_valor,
-            'pendentes_qtd': pendentes_qtd,
-            'pendentes_valor': pendentes_valor,
-            'rejeitados_qtd': rejeitados_qtd
+            'aprovados_qtd': l_aprov[0] or 0, 'aprovados_valor': l_aprov[1] or 0.0,
+            'pendentes_qtd': l_pend[0] or 0, 'pendentes_valor': l_pend[1] or 0.0,
+            'rejeitados_qtd': rej_qtd
         }
 
     def salvar_configuracoes(self, dados):
@@ -412,31 +400,26 @@ class InterfaceSistema:
         cursor.execute('SELECT id FROM configuracoes WHERE id=1')
         existe = cursor.fetchone()
         
-        # Converte booleanos para inteiros (0 ou 1)
-        subpasta = 1 if dados.get('criar_subpasta') else 0
-        salvar_auto = 1 if dados.get('salvar_auto') else 0
-        pg_pix = 1 if dados.get('pagamento_pix') else 0
-        pg_credito = 1 if dados.get('pagamento_credito') else 0
-        pg_debito = 1 if dados.get('pagamento_debito') else 0
-        pg_dinheiro = 1 if dados.get('pagamento_dinheiro') else 0
-        
-        caminho_logo = dados.get('caminho_logo', '')
-        
-        colunas = """nome_empresa=?, razao_social=?, cnpj=?, endereco=?, 
-                  telefone=?, texto_rodape=?, caminho_salvar_pdf=?, criar_subpasta=?,
-                  salvar_auto=?, caminho_logo=?, pagamento_pix=?, pagamento_credito=?, 
-                  pagamento_debito=?, pagamento_dinheiro=?"""
-        
         parametros = (
             dados['empresa'], dados.get('razao_social', ''), dados.get('cnpj', ''), dados.get('endereco', ''), 
-            dados.get('telefone', ''), dados['rodape'], dados.get('caminho_pdf', ''), subpasta,
-            salvar_auto, caminho_logo, pg_pix, pg_credito, pg_debito, pg_dinheiro
+            dados.get('telefone', ''), dados['rodape'], dados.get('caminho_pdf', ''), 
+            1 if dados.get('criar_subpasta') else 0, 1 if dados.get('salvar_auto') else 0, 
+            dados.get('caminho_logo', ''), 1 if dados.get('pagamento_pix') else 0,
+            1 if dados.get('pagamento_credito') else 0, 1 if dados.get('pagamento_debito') else 0,
+            1 if dados.get('pagamento_dinheiro') else 0
         )
 
         if existe:
-            cursor.execute(f'UPDATE configuracoes SET {colunas} WHERE id=1', parametros)
+            cursor.execute('''UPDATE configuracoes SET 
+                nome_empresa=?, razao_social=?, cnpj=?, endereco=?, telefone=?, texto_rodape=?, 
+                caminho_salvar_pdf=?, criar_subpasta=?, salvar_auto=?, caminho_logo=?, 
+                pagamento_pix=?, pagamento_credito=?, pagamento_debito=?, pagamento_dinheiro=? WHERE id=1''', parametros)
         else:
-            cursor.execute(f'INSERT INTO configuracoes (nome_empresa, razao_social, cnpj, endereco, telefone, texto_rodape, caminho_salvar_pdf, criar_subpasta, salvar_auto, caminho_logo, pagamento_pix, pagamento_credito, pagamento_debito, pagamento_dinheiro, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)', parametros)
+            cursor.execute('''INSERT INTO configuracoes (
+                nome_empresa, razao_social, cnpj, endereco, telefone, texto_rodape, 
+                caminho_salvar_pdf, criar_subpasta, salvar_auto, caminho_logo, 
+                pagamento_pix, pagamento_credito, pagamento_debito, pagamento_dinheiro, id) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)''', parametros)
         conexao.commit()
         conexao.close()
         return {'status': 'ok'}
@@ -448,27 +431,15 @@ class InterfaceSistema:
         cursor.execute('SELECT * FROM configuracoes WHERE id=1')
         linha = cursor.fetchone()
         conexao.close()
-        
         if linha:
-            # Função auxiliar para extrair valor com fallback seguro
-            def get_val(chave, padrao=''): 
-                return linha[chave] if chave in linha.keys() and linha[chave] else padrao
-            
             return {
-                'empresa': get_val('nome_empresa'),
-                'razao_social': get_val('razao_social'),
-                'cnpj': get_val('cnpj'),
-                'endereco': get_val('endereco'),
-                'telefone': get_val('telefone'),
-                'rodape': get_val('texto_rodape'),
-                'caminho_pdf': get_val('caminho_salvar_pdf'),
-                'criar_subpasta': bool(linha['criar_subpasta']) if 'criar_subpasta' in linha.keys() else False,
-                'salvar_auto': bool(linha['salvar_auto']) if 'salvar_auto' in linha.keys() else True,
-                'caminho_logo': get_val('caminho_logo'),
-                'pagamento_pix': bool(linha['pagamento_pix']) if 'pagamento_pix' in linha.keys() else False,
-                'pagamento_credito': bool(linha['pagamento_credito']) if 'pagamento_credito' in linha.keys() else False,
-                'pagamento_debito': bool(linha['pagamento_debito']) if 'pagamento_debito' in linha.keys() else False,
-                'pagamento_dinheiro': bool(linha['pagamento_dinheiro']) if 'pagamento_dinheiro' in linha.keys() else False,
+                'empresa': linha['nome_empresa'], 'razao_social': linha['razao_social'],
+                'cnpj': linha['cnpj'], 'endereco': linha['endereco'], 'telefone': linha['telefone'],
+                'rodape': linha['texto_rodape'], 'caminho_pdf': linha['caminho_salvar_pdf'],
+                'criar_subpasta': bool(linha['criar_subpasta']), 'salvar_auto': bool(linha['salvar_auto']),
+                'caminho_logo': linha['caminho_logo'], 'pagamento_pix': bool(linha['pagamento_pix']),
+                'pagamento_credito': bool(linha['pagamento_credito']), 'pagamento_debito': bool(linha['pagamento_debito']),
+                'pagamento_dinheiro': bool(linha['pagamento_dinheiro']),
             }
         return {}
 
@@ -477,15 +448,25 @@ class InterfaceSistema:
             conexao = sqlite3.connect(ARQUIVO_DB)
             conexao.row_factory = sqlite3.Row
             cursor = conexao.cursor()
-            
             cursor.execute('SELECT * FROM orcamentos WHERE id = ?', (id_orcamento,))
-            orcamento = cursor.fetchone()
-            
+            linha_orc = cursor.fetchone()
             cursor.execute('SELECT * FROM configuracoes WHERE id = 1')
             config_linha = cursor.fetchone()
             conexao.close()
 
-            if not orcamento: return {'status': 'erro', 'mensagem': 'Orçamento não encontrado'}
+            if not linha_orc: return {'status': 'erro', 'mensagem': 'Orçamento não encontrado'}
+
+            # MAPEAMENTO CRÍTICO PARA EVITAR KEYERROR
+            orcamento = {
+                'id': linha_orc['id'],
+                'cliente': linha_orc['cliente'],
+                'email': linha_orc['cliente_email'],
+                'telefone': linha_orc['cliente_telefone'],
+                'endereco': linha_orc['cliente_endereco'],
+                'itens': linha_orc['itens'],
+                'total': linha_orc['total'],
+                'data_criacao': linha_orc['data_criacao']
+            }
 
             config = {k: config_linha[k] for k in config_linha.keys()} if config_linha else {}
             
@@ -505,7 +486,6 @@ class InterfaceSistema:
                 'dinheiro': bool(config.get('pagamento_dinheiro', 0))
             }
             
-            # Lógica de Diretório (Automático ou Temporário)
             salvar_auto = bool(config.get('salvar_auto', 1))
             caminho_usuario = config.get('caminho_salvar_pdf', '')
             
@@ -514,119 +494,88 @@ class InterfaceSistema:
                 if bool(config.get('criar_subpasta', 0)):
                     cliente_seguro = sanitizar_nome_arquivo(orcamento['cliente'])
                     dir_salvamento = os.path.join(dir_salvamento, cliente_seguro)
-                    if not os.path.exists(dir_salvamento): 
-                        os.makedirs(dir_salvamento)
+                    if not os.path.exists(dir_salvamento): os.makedirs(dir_salvamento)
             else:
                 dir_salvamento = tempfile.gettempdir()
 
             itens = json.loads(orcamento['itens'])
-
             pdf = RelatorioPDF(dados_empresa, orcamento, orcamento['data_criacao'], metodos_pagamento)
             pdf.alias_nb_pages()
             pdf.add_page()
-            pdf.ln(5)
-
+            
             # Cabeçalho da Tabela
             pdf.set_font('Helvetica', 'B', 10)
             pdf.set_fill_color(50, 50, 50)
             pdf.set_draw_color(50, 50, 50)
             pdf.set_text_color(255, 255, 255)
+            larguras = [90, 25, 30, 35]
             
-            larguras = [90, 25, 30, 35] # Descrição, Qtd, Unit, Total
-            altura_cabecalho = 9
-            
-            pdf.cell(larguras[0], altura_cabecalho, "  DESCRIÇÃO / SERVIÇO", 1, 0, 'L', True)
-            pdf.cell(larguras[1], altura_cabecalho, "QTD", 1, 0, 'C', True)
-            pdf.cell(larguras[2], altura_cabecalho, "UNITÁRIO", 1, 0, 'R', True)
-            pdf.cell(larguras[3], altura_cabecalho, "TOTAL  ", 1, 1, 'R', True)
+            pdf.cell(larguras[0], 9, limpar_texto("  DESCRIÇÃO / SERVIÇO"), border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='L', fill=True)
+            pdf.cell(larguras[1], 9, limpar_texto("QTD"), border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
+            pdf.cell(larguras[2], 9, limpar_texto("UNITÁRIO"), border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='R', fill=True)
+            pdf.cell(larguras[3], 9, limpar_texto("TOTAL  "), border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='R', fill=True)
             
             pdf.set_font('Helvetica', '', 10)
             pdf.set_text_color(0, 0, 0)
             pdf.set_draw_color(220, 220, 220)
             
-            # Renderização dos Itens
             for i, item in enumerate(itens):
                 desc = item['desc']
-                if 'obs' in item and item['obs']: desc += f"\n(Obs: {item['obs']})"
+                if item.get('obs'): desc += f"\n(Obs: {item['obs']})"
+                
+                bg = (i % 2 == 1)
+                pdf.set_fill_color(248, 248, 248) if bg else pdf.set_fill_color(255, 255, 255)
 
-                preenchimento = (i % 2 == 1)
-                if preenchimento: pdf.set_fill_color(248, 248, 248)
-                else: pdf.set_fill_color(255, 255, 255)
-
-                x_inicio = pdf.get_x()
-                y_inicio = pdf.get_y()
+                x_ini, y_ini = pdf.get_x(), pdf.get_y()
+                pdf.multi_cell(larguras[0], 7, limpar_texto("  " + desc), border='L', align='L', fill=bg)
+                h_linha = pdf.get_y() - y_ini
                 
-                pdf.multi_cell(larguras[0], 7, "  " + desc, 'L', 'L', preenchimento)
-                altura_linha = pdf.get_y() - y_inicio
+                pdf.set_xy(x_ini + larguras[0], y_ini)
+                pdf.cell(larguras[1], h_linha, str(item['qtd']), border=0, align='C', fill=bg)
+                pdf.cell(larguras[2], h_linha, limpar_texto(formatar_moeda(item['preco'])), border=0, align='R', fill=bg)
+                pdf.cell(larguras[3], h_linha, limpar_texto(formatar_moeda(item['total']) + "  "), border=0, align='R', fill=bg)
                 
-                # Posiciona para as próximas colunas
-                pdf.set_xy(x_inicio + larguras[0], y_inicio)
-                pdf.cell(larguras[1], altura_linha, str(item['qtd']), 0, 0, 'C', preenchimento)
-                pdf.cell(larguras[2], altura_linha, formatar_moeda(item['preco']), 0, 0, 'R', preenchimento)
-                pdf.cell(larguras[3], altura_linha, formatar_moeda(item['total']) + "  ", 0, 0, 'R', preenchimento)
-                
-                pdf.line(15, y_inicio + altura_linha, 195, y_inicio + altura_linha)
-                pdf.ln(altura_linha)
+                pdf.line(15, y_ini + h_linha, 195, y_ini + h_linha)
+                pdf.set_y(y_ini + h_linha)
 
             pdf.ln(8)
             if pdf.get_y() > 230: pdf.add_page()
             
-            # Caixa de Totais
-            x_total = 120
-            larg_total = 195 - x_total
-            altura_total = 12
-            
+            # Totais
             pdf.set_fill_color(235, 235, 235)
             pdf.set_draw_color(0, 0, 0)
-            pdf.set_line_width(0.3)
-            
-            pdf.set_x(x_total)
-            pdf.rect(x_total, pdf.get_y(), larg_total, altura_total, 'DF')
-            
+            pdf.set_x(120)
+            pdf.rect(120, pdf.get_y(), 75, 12, 'DF')
             pdf.set_font('Helvetica', 'B', 12)
-            pdf.cell(40, altura_total, "  TOTAL GERAL", 0, 0, 'L')
-            pdf.set_text_color(0, 0, 0)
-            pdf.cell(larg_total - 40, altura_total, formatar_moeda(orcamento['total']) + "  ", 0, 1, 'R')
-            
-            pdf.set_line_width(0.2)
-            pdf.set_text_color(0, 0, 0)
+            pdf.cell(40, 12, limpar_texto("  TOTAL GERAL"), border=0, align='L')
+            pdf.cell(35, 12, limpar_texto(formatar_moeda(orcamento['total']) + "  "), border=0, align='R')
+            pdf.ln(15)
 
-            # Rodapé Personalizado
-            texto_rodape = config.get('texto_rodape', '')
-            if texto_rodape:
+            # Rodapé
+            if config.get('texto_rodape'):
                 pdf.set_y(-40)
                 pdf.set_draw_color(200, 200, 200)
                 pdf.line(15, pdf.get_y()-2, 195, pdf.get_y()-2)
                 pdf.set_font('Helvetica', '', 9)
                 pdf.set_text_color(60, 60, 60)
-                pdf.multi_cell(0, 5, texto_rodape, 0, 'C')
+                pdf.multi_cell(0, 5, limpar_texto(config['texto_rodape']), align='C')
 
-            nome_arquivo = f"Orcamento_{orcamento['id']}_{sanitizar_nome_arquivo(orcamento['cliente'])}.pdf"
-            caminho_completo = os.path.join(dir_salvamento, nome_arquivo)
-            pdf.output(caminho_completo)
-            
-            abrir_arquivo_externo(caminho_completo)
+            nome_arq = f"Orcamento_{orcamento['id']}_{sanitizar_nome_arquivo(orcamento['cliente'])}.pdf"
+            caminho_final = os.path.join(dir_salvamento, nome_arq)
+            pdf.output(caminho_final)
+            abrir_arquivo_externo(caminho_final)
 
-            return {'status': 'ok', 'arquivo': caminho_completo, 'salvo_automaticamente': salvar_auto}
-
+            return {'status': 'ok', 'arquivo': caminho_final}
         except Exception as e:
             import traceback
             traceback.print_exc()
             return {'status': 'erro', 'mensagem': str(e)}
 
-# ===[ EXECUÇÃO PRINCIPAL ]===
+# ===[ EXECUÇÃO ]===
 
 if __name__ == '__main__':
     inicializar_banco()
     api = InterfaceSistema()
     caminho_html = os.path.join(obter_caminho_app(), 'web', 'index.html')
-    
-    api.janela = webview.create_window(
-        'OrcaPro - Gerador de Orçamentos', 
-        caminho_html, 
-        js_api=api, 
-        width=1200, 
-        height=850, 
-        min_size=(900, 650)
-    )
-    webview.start(debug=False)
+    api.janela = webview.create_window('OrcaPro', caminho_html, js_api=api, width=1200, height=850)
+    webview.start()
