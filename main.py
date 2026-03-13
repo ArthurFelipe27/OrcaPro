@@ -132,13 +132,15 @@ def sanitizar_nome_arquivo(nome):
 # ===[ GERAÇÃO DE PDF ]===
 
 class RelatorioPDF(FPDF):
-    def __init__(self, dados_empresa, orcamento, data_formatada, metodos_pagamento):
+    def __init__(self, dados_empresa, orcamento, data_formatada, metodos_pagamento, texto_rodape=""):
         super().__init__()
         self.empresa = dados_empresa
         self.orcamento = orcamento
         self.data_str = data_formatada
         self.pagamentos = metodos_pagamento
-        self.set_auto_page_break(auto=True, margin=20)
+        self.texto_rodape = texto_rodape
+        # Margem inferior aumentada para comportar o rodapé estendido com segurança
+        self.set_auto_page_break(auto=True, margin=35)
         self.set_margins(15, 15, 15)
 
     def header(self):
@@ -157,7 +159,7 @@ class RelatorioPDF(FPDF):
 
         pos_texto_x = 50 if possui_logo else 15
         
-        # Dados da Empresa (Sintaxe atualizada FPDF2)
+        # Dados da Empresa
         self.set_xy(pos_texto_x, 15)
         self.set_text_color(0, 0, 0)
         self.set_font('Helvetica', 'B', 14)
@@ -228,11 +230,41 @@ class RelatorioPDF(FPDF):
         if self.orcamento.get('endereco'):
             self.cell(0, 5, limpar_texto(self.orcamento['endereco']), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
             
-        self.ln(10)
+        self.ln(8) # Espaço antes do começo da tabela
+
+    def cabecalho_tabela(self):
+        """Desenha os cabeçalhos das colunas (Repetido automaticamente em novas páginas)."""
+        self.set_font('Helvetica', 'B', 10)
+        self.set_fill_color(50, 50, 50)
+        self.set_draw_color(50, 50, 50)
+        self.set_text_color(255, 255, 255)
+        larguras = [90, 25, 30, 35]
+        
+        self.cell(larguras[0], 9, limpar_texto("  DESCRIÇÃO / SERVIÇO"), border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='L', fill=True)
+        self.cell(larguras[1], 9, limpar_texto("QTD"), border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
+        self.cell(larguras[2], 9, limpar_texto("UNITÁRIO"), border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='R', fill=True)
+        self.cell(larguras[3], 9, limpar_texto("TOTAL  "), border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='R', fill=True)
+        
+        self.set_font('Helvetica', '', 10)
+        self.set_text_color(0, 0, 0)
+        self.set_draw_color(220, 220, 220)
 
     def footer(self):
-        self.set_y(-25)
+        """Rodapé fixo em todas as páginas."""
+        # Define a altura base do rodapé baseada na presença do texto extra das configurações
+        y_pos = -35 if self.texto_rodape else -25
+        self.set_y(y_pos)
         
+        # Texto customizado de observação / rodapé
+        if self.texto_rodape:
+            self.set_draw_color(200, 200, 200)
+            self.line(15, self.get_y()-2, 195, self.get_y()-2)
+            self.set_font('Helvetica', '', 9)
+            self.set_text_color(60, 60, 60)
+            self.multi_cell(0, 5, limpar_texto(self.texto_rodape), align='C')
+            self.ln(3)
+
+        # Formas de Pagamento
         if self.pagamentos:
             self.set_font('Helvetica', 'B', 8)
             self.set_text_color(50, 50, 50)
@@ -249,6 +281,8 @@ class RelatorioPDF(FPDF):
                 texto_final = ", ".join(texto_metodos) + "."
                 self.cell(0, 4, limpar_texto(texto_final), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
 
+        # Contagem de páginas
+        self.set_y(-15)
         self.set_font('Helvetica', 'I', 8)
         self.set_text_color(150, 150, 150)
         self.cell(0, 10, limpar_texto(f'Página {self.page_no()}/{{nb}}'), border=0, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C')
@@ -456,7 +490,6 @@ class InterfaceSistema:
 
             if not linha_orc: return {'status': 'erro', 'mensagem': 'Orçamento não encontrado'}
 
-            # MAPEAMENTO CRÍTICO PARA EVITAR KEYERROR
             orcamento = {
                 'id': linha_orc['id'],
                 'cliente': linha_orc['cliente'],
@@ -488,6 +521,7 @@ class InterfaceSistema:
             
             salvar_auto = bool(config.get('salvar_auto', 1))
             caminho_usuario = config.get('caminho_salvar_pdf', '')
+            texto_rodape = config.get('texto_rodape', '')
             
             if salvar_auto and caminho_usuario and os.path.exists(caminho_usuario):
                 dir_salvamento = caminho_usuario
@@ -499,30 +533,36 @@ class InterfaceSistema:
                 dir_salvamento = tempfile.gettempdir()
 
             itens = json.loads(orcamento['itens'])
-            pdf = RelatorioPDF(dados_empresa, orcamento, orcamento['data_criacao'], metodos_pagamento)
+            
+            # Instancia o PDF com todos os dados preenchidos
+            pdf = RelatorioPDF(dados_empresa, orcamento, orcamento['data_criacao'], metodos_pagamento, texto_rodape)
             pdf.alias_nb_pages()
             pdf.add_page()
             
-            # Cabeçalho da Tabela
-            pdf.set_font('Helvetica', 'B', 10)
-            pdf.set_fill_color(50, 50, 50)
-            pdf.set_draw_color(50, 50, 50)
-            pdf.set_text_color(255, 255, 255)
+            # Cabeçalho da Tabela pela primeira vez
+            pdf.cabecalho_tabela()
             larguras = [90, 25, 30, 35]
-            
-            pdf.cell(larguras[0], 9, limpar_texto("  DESCRIÇÃO / SERVIÇO"), border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='L', fill=True)
-            pdf.cell(larguras[1], 9, limpar_texto("QTD"), border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
-            pdf.cell(larguras[2], 9, limpar_texto("UNITÁRIO"), border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='R', fill=True)
-            pdf.cell(larguras[3], 9, limpar_texto("TOTAL  "), border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='R', fill=True)
-            
-            pdf.set_font('Helvetica', '', 10)
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_draw_color(220, 220, 220)
             
             for i, item in enumerate(itens):
                 desc = item['desc']
                 if item.get('obs'): desc += f"\n(Obs: {item['obs']})"
                 
+                # --- PREVISÃO DE ESPAÇO: Evitar que a tabela quebre no meio do desenho ---
+                pdf.set_font('Helvetica', '', 10)
+                linhas_texto = desc.split('\n')
+                qtd_linhas = 0
+                for l in linhas_texto:
+                    largura_str = pdf.get_string_width("  " + l)
+                    qtd_linhas += max(1, int(largura_str / 85) + 1)
+                
+                altura_estimada = qtd_linhas * 7
+                
+                # O PDF FPDF vai até 297mm. Avaliamos até o 240mm por conta do nosso Rodapé Fixo estendido
+                if pdf.get_y() + altura_estimada > 240:
+                    pdf.add_page() # O FPDF automaticamente puxará o cabeçalho (empresa e cliente)
+                    pdf.cabecalho_tabela() # Nós chamamos manualmente as colunas da tabela novamente
+                # --------------------------------------------------------------------------
+
                 bg = (i % 2 == 1)
                 pdf.set_fill_color(248, 248, 248) if bg else pdf.set_fill_color(255, 255, 255)
 
@@ -539,7 +579,10 @@ class InterfaceSistema:
                 pdf.set_y(y_ini + h_linha)
 
             pdf.ln(8)
-            if pdf.get_y() > 230: pdf.add_page()
+            
+            # Se não houver espaço para mostrar o Total Geral adequadamente, jogue para a próxima pág.
+            if pdf.get_y() > 225: 
+                pdf.add_page()
             
             # Totais
             pdf.set_fill_color(235, 235, 235)
@@ -550,15 +593,6 @@ class InterfaceSistema:
             pdf.cell(40, 12, limpar_texto("  TOTAL GERAL"), border=0, align='L')
             pdf.cell(35, 12, limpar_texto(formatar_moeda(orcamento['total']) + "  "), border=0, align='R')
             pdf.ln(15)
-
-            # Rodapé
-            if config.get('texto_rodape'):
-                pdf.set_y(-40)
-                pdf.set_draw_color(200, 200, 200)
-                pdf.line(15, pdf.get_y()-2, 195, pdf.get_y()-2)
-                pdf.set_font('Helvetica', '', 9)
-                pdf.set_text_color(60, 60, 60)
-                pdf.multi_cell(0, 5, limpar_texto(config['texto_rodape']), align='C')
 
             nome_arq = f"Orcamento_{orcamento['id']}_{sanitizar_nome_arquivo(orcamento['cliente'])}.pdf"
             caminho_final = os.path.join(dir_salvamento, nome_arq)
